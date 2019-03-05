@@ -16,9 +16,6 @@ int main(int argc, char **argv) {
     cout << "Mapping input to CA reservoir\n";
     CA ca;
     real_2d_array training_data;
-    ae_int_t info;
-    ae_int_t nvars;
-    lrreport rep;
     vector<linearmodel> output(3);
 
     srand(time(NULL));
@@ -122,8 +119,45 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
 /***************************************************************************************/
 
 void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& output) {
+    int time_step, test_set, data_index;
+    int i, stop = SEQUENCE_LENGTH * TEST_SETS; 
+    int distractor_end = SEQUENCE_LENGTH - 5;
+    int model_index;
+    ae_int_t info;
+    ae_int_t nvars;
+    lrreport rep;
 
+    for (model_index = 0; model_index < 3; ++model_index){
+	data_index = 0;
+	for (test_set = 0; test_set < TEST_SETS; ++test_set) {
+	    if (model_index == 2) {
+		for (i = 0; i < distractor_end; ++i) 
+		    training_data[data_index++][READOUT_LENGTH] = 1;
+	    }
+	    else if (model_index == 0) {
+		for (i = 0; i < distractor_end; ++i) 
+		    training_data[data_index++][READOUT_LENGTH] = 0;
+	    }
+	    // Recall period
+	    for (time_step = 0; i < SEQUENCE_LENGTH; ++i, ++time_step) {
+                if (model_index == 0) {
+		    training_data[data_index++][READOUT_LENGTH] = 
+			test_set >> time_step & 1;
+		}
+		else if (model_index == 1) {
+		    training_data[data_index++][READOUT_LENGTH] = 
+			!(test_set >> time_step & 1);
+		}
+		else 
+		    training_data[data_index++][READOUT_LENGTH] = 0;
+	    }
+	}
+	cout << "Building linear regression model #" << model_index << endl;
+        lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+		output[model_index], rep);
+	cout << int(info) << endl;
 
+    }
 }
 
 /***************************************************************************************/
