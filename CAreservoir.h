@@ -24,15 +24,19 @@ class CA {
 	CA();
 	void set_input(std::vector<int> input);
 	void set_rule(std::vector<int> rule);
+	void apply_rule(alglib::real_2d_array& training_data, int time_step);
+	void train_5_bit(alglib::real_2d_array& training_data);
 
     private:
+        int mod(int x, int y);
+	int base_N_to_dec(int num[], int base, int length);
 	std::vector<std::vector<int>> 	_map;  // [R][INPUT_LENGTH]
-	std::vector<std::vector<int>> 	_cell; // [I][WIDTH];  // [Row][Column]
+	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH];  // [Row][Column]
 	std::vector<int> 		_rule;
 	int 				_iter;
 };
 
-
+class NegativeModulusException{};
 
 
 #endif
