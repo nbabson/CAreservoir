@@ -19,9 +19,7 @@ int main(int argc, char **argv) {
     ae_int_t info;
     ae_int_t nvars;
     lrreport rep;
-    linearmodel output1;
-    linearmodel output2;
-    linearmodel output3;
+    vector<linearmodel> output(3);
 
     srand(time(NULL));
     ca.set_rule(RULE90);
@@ -30,6 +28,8 @@ int main(int argc, char **argv) {
 
     cout << "Building training data\n";
     ca.train_5_bit(training_data);
+    cout << "Building regression models\n";
+    ca.build_5_bit_model(training_data, output);
     // for 32 iputs
     // evolve CA 210 times
     // build training data
@@ -91,42 +91,81 @@ void CA::set_rule(vector<int> rule) {
 
     for (i = 0; i < RULELENGTH; ++i)
 	_rule[i] = rule[i];
-
-
-    int test[3] = {1,2,3};
-    cout << "\n" << base_N_to_dec(test, 4, 3) << endl;
 }
 
 /***************************************************************************************/
 
-void CA::apply_rule(real_2d_array& training_data, int time_step) {
+void CA::apply_rule(real_2d_array& training_data, int data_index) {
     int i, j;
     int rule_index, rule_window[NEIGHBORHOOD];
     int start = -(NEIGHBORHOOD / 2);
     int finish = NEIGHBORHOOD / 2;
 
 
-    for (; _iter < I; ++i) {
+    //cout << "Applying rule\n";
+    for (; _iter < I; ++_iter) {
 	// Could be optimized to only call mod() at ends of row
 	for (i = 0; i < WIDTH; ++i) {
 	    for (j = start, rule_index = 0; j <= finish; ++j, ++rule_index)
 		rule_window[rule_index] = _cell[_iter][mod(i + j, WIDTH)];
-	    _cell[_iter + 1][i] = training_data[time_step][i]
+	    _cell[_iter + 1][i] = training_data[data_index][i]
 		= _rule[base_N_to_dec(rule_window, STATES, NEIGHBORHOOD)];
 	}
     }
     // copy last row to initial position
     for (i = 0; i < WIDTH; ++i)
 	_cell[0][i] = _cell[_iter][i];
+    //cout << "Data_index: " << data_index << endl;
 }
-
 
 
 /***************************************************************************************/
 
-void CA::train_5_bit(alglib::real_2d_array& training_data) {
-    int time_step;
+void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& output) {
 
+
+}
+
+/***************************************************************************************/
+
+//training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+void CA::train_5_bit(real_2d_array& training_data) {
+    int time_step ,test_set;
+    int output_index, data_index = 0;
+    int distractor_end = SEQUENCE_LENGTH - 6;
+    vector<int> input(4);
+
+    for (test_set = 0; test_set < TEST_SETS; ++test_set) {
+	// Input signal
+	for (time_step = 0; time_step < 5; ++time_step) {
+	    input[0] = test_set >> time_step & 1;
+	    input[1] = !input[0];
+	    input[2] = input[3] = 0;
+	    set_input(input);
+            apply_rule(training_data, data_index++); 
+	}
+	// Distractor period
+	for (; time_step < distractor_end; ++time_step) {
+	    input[0] = input[1] = input[3] = 0;
+	    input[2] = 1;
+	    set_input(input);
+            apply_rule(training_data, data_index++); 
+	}
+	// Distractor signal
+	input[0] = input[1] = input[2] = 0;
+	input[3] = 1;
+	set_input(input);
+	apply_rule(training_data, data_index++); 
+	++time_step;
+        // Recall period
+	for (; time_step < SEQUENCE_LENGTH; ++time_step) {
+	    input[0] = input[1] = input[3] = 0;
+	    input[2] = 1;
+	    set_input(input);
+            apply_rule(training_data, data_index++); 
+	}
+    }
+    //cout << "Data_index: " << data_index << endl;
 }
 
 /***************************************************************************************/

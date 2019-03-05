@@ -24,7 +24,9 @@ class CA {
 	CA();
 	void set_input(std::vector<int> input);
 	void set_rule(std::vector<int> rule);
-	void apply_rule(alglib::real_2d_array& training_data, int time_step);
+	void apply_rule(alglib::real_2d_array& training_data, int data_index);
+        void build_5_bit_model(alglib::real_2d_array& training_data,
+		std::vector<alglib::linearmodel>& output);
 	void train_5_bit(alglib::real_2d_array& training_data);
 
     private:
