@@ -3,9 +3,9 @@
 #define CARESERVOIR_H
 
 
-const int R 			= 8;
+const int R 			= 8;  //8
 const int I 			= 2;
-const int DIFFUSE_LENGTH 	= 40;
+const int DIFFUSE_LENGTH 	= 40; //40
 const int INPUT_LENGTH 		= 4;
 const int STATES 		= 2; 
 const int NEIGHBORHOOD 		= 3;
@@ -28,6 +28,9 @@ class CA {
         void build_5_bit_model(alglib::real_2d_array& training_data,
 		std::vector<alglib::linearmodel>& output);
 	void train_5_bit(alglib::real_2d_array& training_data);
+	void test_CA(alglib::real_2d_array& training_data);
+	void draw_CA(alglib::real_2d_array& training_data);
+	void save_CA(alglib::real_2d_array& training_data);
 
     private:
         int mod(int x, int y);

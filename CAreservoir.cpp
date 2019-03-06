@@ -4,6 +4,7 @@
 #include <math.h>
 #include <vector>
 #include <time.h>
+#include <string>
 #include "dataanalysis.h"
 #include "CAreservoir.h"
 
@@ -17,23 +18,23 @@ int main(int argc, char **argv) {
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-
     srand(time(NULL));
     ca.set_rule(RULE90);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
+          //         vector<int> in = {0,1,0,0};
+	//	   ca.set_input(in);
+        //    ca.test_CA(training_data);
+
     cout << "Building training data\n";
     ca.train_5_bit(training_data);
     cout << "Building regression models\n";
-    ca.build_5_bit_model(training_data, output);
-    // for 32 iputs
-    // evolve CA 210 times
-    // build training data
-    // affix targets and build models
+//    ca.build_5_bit_model(training_data, output);
 
-    // test
-    cout << "in Main      " << (-5) % 4 << "       \n";
+     //ca.test_CA(training_data);
+    //ca.draw_CA(training_data);
+    ca.save_CA(training_data);
 
     return 0;
 }
@@ -89,6 +90,64 @@ void CA::set_rule(vector<int> rule) {
     for (i = 0; i < RULELENGTH; ++i)
 	_rule[i] = rule[i];
 }
+	
+/***************************************************************************************/
+
+void CA::test_CA(real_2d_array& training_data) {
+    int data_index = 0;
+
+    for (int i = 0; i < READOUT_LENGTH; ++i)
+	apply_rule(training_data, data_index++);
+
+    save_CA(training_data);
+    //draw_CA(training_data);
+}
+
+
+/***************************************************************************************/
+
+void CA::draw_CA(alglib::real_2d_array& training_data) {
+    int i, j, k, l, repeat;
+    char ans;
+    int num_colors = 3 * STATES;
+    char charState, state;
+    int layer[WIDTH];
+    do { 
+	FILE* f_out = fopen("ca.ppm", "w"); 
+	FILE* f_in = fopen("ca.txt", "r");
+
+	fputs("P3\n", f_out);
+	// Square PPM image of beginning of training data
+	fprintf(f_out, "%d %d\n", 3 * WIDTH, 3 * WIDTH);
+	fputs("255\n", f_out);
+	vector<int> colors(num_colors);
+	// Set colors randomly
+	for (i = 0; i < num_colors; ++i)
+	    colors[i] = rand() % 256;
+        for (i = 0; i < WIDTH; ++i)
+        {
+       	  for (j = 0; j < WIDTH; ++j)
+	  {
+	     fscanf(f_in, " %c", &charState);
+	     state =  (int) charState - 48;
+	     layer[j] = state;
+	     for (k = 0; k < 3; ++k)
+		fprintf(f_out, "%d %d %d ", colors[state*3], colors[state*3+1], colors[state*3+2]);
+	     if (i % 3 == 2)
+		fprintf(f_out, "\n");
+	  }
+	  for (j = 0; j < 2; ++j)
+	   for (l = 0; l < WIDTH; ++l)
+	      for (k = 0; k < 3; ++k)
+		 fprintf(f_out, "%d %d %d ", colors[layer[l]*3], colors[layer[l]*3+1], colors[layer[l]*3+2]);
+       }
+       fclose(f_out);
+       fclose(f_in);
+       cout << "Redraw CA? (y or n)  ";
+       cin >> ans;
+    } while (ans == 'y' || ans == 'Y');
+}
+
 
 /***************************************************************************************/
 
@@ -97,16 +156,17 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
     int rule_index, rule_window[NEIGHBORHOOD];
     int start = -(NEIGHBORHOOD / 2);
     int finish = NEIGHBORHOOD / 2;
+    int n = RULELENGTH - 1;
 
-
+    _iter = 0;
     //cout << "Applying rule\n";
     for (; _iter < I; ++_iter) {
 	// Could be optimized to only call mod() at ends of row
 	for (i = 0; i < WIDTH; ++i) {
 	    for (j = start, rule_index = 0; j <= finish; ++j, ++rule_index)
 		rule_window[rule_index] = _cell[_iter][mod(i + j, WIDTH)];
-	    _cell[_iter + 1][i] = training_data[data_index][i]
-		= _rule[base_N_to_dec(rule_window, STATES, NEIGHBORHOOD)];
+	    _cell[_iter + 1][i] = training_data[data_index][i + WIDTH * _iter]
+		= _rule[n -  base_N_to_dec(rule_window, STATES, NEIGHBORHOOD)];
 	}
     }
     // copy last row to initial position
@@ -152,12 +212,39 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		    training_data[data_index++][READOUT_LENGTH] = 0;
 	    }
 	}
-	cout << "Building linear regression model #" << model_index << endl;
+	cout << "Building linear regression model #" << model_index + 1 << endl;
         lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		output[model_index], rep);
-	cout << int(info) << endl;
-
+        cout << int(info) << endl;
+	//cout << "Training data #" << model_index + 1 << training_data.tostring(4).c_str() << endl;
     }
+    //for (i = 0; i < 3; ++i) {
+//	real_1d_array coeffs;
+//	lrunpack(output[i], coeffs, nvars);
+//	printf("Coefficients: %s\n", coeffs.tostring(4).c_str());
+  //  }
+//    save_CA(training_data);
+}
+
+/***************************************************************************************/
+
+
+void CA::save_CA(real_2d_array& training_data) {
+    int i, j;
+    int height = SEQUENCE_LENGTH * TEST_SETS;
+    int width = READOUT_LENGTH;
+    FILE* f_out = fopen("ca.txt", "w");
+    //string syst = "./draw2 ca.txt ca2.ppm";;
+    
+    for (i = 0; i < height; ++i) {
+	for (j = 0; j < width; ++j)
+	    fprintf(f_out, "%d", (int)training_data[i][j]);
+    }
+    fclose(f_out);
+
+    //system(syst.c_str());
+    //puts(syst.c_str());
+    draw_CA(training_data);
 }
 
 /***************************************************************************************/
