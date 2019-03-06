@@ -30,9 +30,8 @@ int main(int argc, char **argv) {
     cout << "Building training data\n";
     ca.train_5_bit(training_data);
     cout << "Building regression models\n";
-//    ca.build_5_bit_model(training_data, output);
+    ca.build_5_bit_model(training_data, output);
 
-     //ca.test_CA(training_data);
     //ca.draw_CA(training_data);
     ca.save_CA(training_data);
 
@@ -93,7 +92,7 @@ void CA::set_rule(vector<int> rule) {
 	
 /***************************************************************************************/
 
-void CA::test_CA(real_2d_array& training_data) {
+void CA::check_CA(real_2d_array& training_data) {
     int data_index = 0;
 
     for (int i = 0; i < READOUT_LENGTH; ++i)
@@ -194,7 +193,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		for (i = 0; i < distractor_end; ++i) 
 		    training_data[data_index++][READOUT_LENGTH] = 1;
 	    }
-	    else if (model_index == 0) {
+	    else {           // model_index == 0 or 1
 		for (i = 0; i < distractor_end; ++i) 
 		    training_data[data_index++][READOUT_LENGTH] = 0;
 	    }
@@ -206,7 +205,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		}
 		else if (model_index == 1) {
 		    training_data[data_index++][READOUT_LENGTH] = 
-			!(test_set >> time_step & 1);
+			1 - (test_set >> time_step & 1);
 		}
 		else 
 		    training_data[data_index++][READOUT_LENGTH] = 0;
@@ -214,20 +213,46 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 	}
 	cout << "Building linear regression model #" << model_index + 1 << endl;
         lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
-		output[model_index], rep);
-        cout << int(info) << endl;
-	//cout << "Training data #" << model_index + 1 << training_data.tostring(4).c_str() << endl;
+		output[model_index], rep);    // Try lrbuildz()
+        //cout << int(info) << endl;  // 1 for successful build
+        //for  (time_step = 0; time_step < SEQUENCE_LENGTH*TEST_SETS; ++time_step)  // Print out targets
+	//     cout << training_data[time_step][READOUT_LENGTH] << "  ";
+	//cout << "Training data #" << model_index + 1 << training_data.tostring(0).c_str() << endl;  
     }
-    //for (i = 0; i < 3; ++i) {
-//	real_1d_array coeffs;
-//	lrunpack(output[i], coeffs, nvars);
-//	printf("Coefficients: %s\n", coeffs.tostring(4).c_str());
-  //  }
-//    save_CA(training_data);
+    /*for (i = 0; i < 3; ++i) {     // Print out coefficients
+	real_1d_array coeffs;
+	lrunpack(output[i], coeffs, nvars);
+	printf("Coefficients: %s\n", coeffs.tostring(4).c_str());
+    }*/
 }
 
 /***************************************************************************************/
 
+void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
+    real_1d_array model_input;
+    int incorrect_predictions = 0;
+    int model_index = 0;
+    int training_data_index, test_set, sequence_index, i;
+    double result;
+
+    model_input.setlength(READOUT_LENGTH);
+    for (model_index = 0; model_index < 3; ++model_index) {
+	training_data_index = 0;
+        for (test_set = 0; test_set < TEST_SETS; ++test_set) {
+	    for (sequence_index = 0; sequence_index < SEQUENCE_LENGTH; ++sequence_index) {
+		// Copy reservoir sequence into model_input
+		for (i = 0; i < READOUT_LENGTH; ++i)
+		    model_input[i] = training_data[training_data_index][i];
+		result = lrprocess(output[model_index], model_input);
+		cout << result << "\t\t" << training_data[training_data_index][READOUT_LENGTH]
+		    << endl;
+		++training_data_index;
+	    }
+	}
+    }
+}
+
+/***************************************************************************************/
 
 void CA::save_CA(real_2d_array& training_data) {
     int i, j;
