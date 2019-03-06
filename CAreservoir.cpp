@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
 
     //ca.draw_CA(training_data);
     ca.save_CA(training_data);
+    ca.test_5_bit(training_data, output);
 
     return 0;
 }
@@ -227,13 +228,14 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 }
 
 /***************************************************************************************/
-
+ 
 void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
     real_1d_array model_input;
     int incorrect_predictions = 0;
     int model_index = 0;
     int training_data_index, test_set, sequence_index, i;
     double result;
+    int result_state;
 
     model_input.setlength(READOUT_LENGTH);
     for (model_index = 0; model_index < 3; ++model_index) {
@@ -244,12 +246,21 @@ void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 		for (i = 0; i < READOUT_LENGTH; ++i)
 		    model_input[i] = training_data[training_data_index][i];
 		result = lrprocess(output[model_index], model_input);
+		// !!! This has to be adjusted for different #s of states !!!
+		result_state = result < .5 ? 0 : 1;
+		// TODO need to save and use targets for models 1 and 2
+                if (result_state != training_data[training_data_index][READOUT_LENGTH]) {
+                    cout << "0    ";
+		    ++incorrect_predictions;
+		}
+		else cout << "1    ";
 		cout << result << "\t\t" << training_data[training_data_index][READOUT_LENGTH]
 		    << endl;
 		++training_data_index;
 	    }
 	}
     }
+    cout << endl << incorrect_predictions << " incorrect predictions.\n";
 }
 
 /***************************************************************************************/
