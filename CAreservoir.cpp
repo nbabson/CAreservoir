@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    ca.set_rule(RULE102);
+    ca.set_rule(RULE153);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
