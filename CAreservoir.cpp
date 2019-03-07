@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     ca.build_5_bit_model(training_data, output);
 
     //ca.draw_CA(training_data);
-    ca.save_CA(training_data);
+    //ca.save_CA(training_data);
     ca.test_5_bit(training_data, output);
 
     return 0;
