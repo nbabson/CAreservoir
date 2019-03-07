@@ -132,7 +132,7 @@ void CA::draw_CA(alglib::real_2d_array& training_data) {
         {
        	  for (j = 0; j < WIDTH; ++j)
 	  {
-	     fscanf(f_in, " %c", &charState);
+	     ans = (int)fscanf(f_in, " %c", &charState);
 	     state =  (int) charState - 48;
 	     layer[j] = state;
 	     // Draw cells as 3 x 3 blocks
@@ -185,7 +185,7 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
 
 void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& output) {
     int time_step, test_set, data_index;
-    int i, stop = SEQUENCE_LENGTH * TEST_SETS; 
+    int i; // stop = SEQUENCE_LENGTH * TEST_SETS; 
     int distractor_end = SEQUENCE_LENGTH - 5;
     int model_index;
     ae_int_t info;
