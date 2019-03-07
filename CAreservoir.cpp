@@ -5,6 +5,7 @@
 #include <vector>
 #include <time.h>
 #include <string>
+#include <iomanip>
 #include "dataanalysis.h"
 #include "CAreservoir.h"
 
@@ -13,13 +14,12 @@ using namespace std;
 
 
 int main(int argc, char **argv) {
-
     cout << "Mapping input to CA reservoir\n";
+    srand(time(NULL));
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    srand(time(NULL));
-    ca.set_rule(RULE90);
+    ca.set_rule(RULE60);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
@@ -51,6 +51,7 @@ CA::CA() {
     _map.resize(R, vector<int>(INPUT_LENGTH));
     _cell.resize(I + 1, vector<int>(WIDTH));
     _rule.resize(RULELENGTH);
+    _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
     // Initialize first row with 0s
     for (i = 0; i < WIDTH; ++i)
 	_cell[0][i] = 0;
@@ -78,6 +79,9 @@ void CA::set_input(vector<int> input) {
 	for (j = 0; j < INPUT_LENGTH; ++j) {
 	    // Overwrite initial row with mapped inputs
             _cell[0][i * DIFFUSE_LENGTH + _map[i][j]] = input[j];
+	    // Add input state to initial row
+            //_cell[0][i * DIFFUSE_LENGTH + _map[i][j]] = 
+		//(_cell[0][i * DIFFUSE_LENGTH + _map[i][j]] + input[j]) % STATES;
 	}
     }
 }
@@ -107,7 +111,7 @@ void CA::check_CA(real_2d_array& training_data) {
 /***************************************************************************************/
 
 void CA::draw_CA(alglib::real_2d_array& training_data) {
-    int i, j, k, l, repeat;
+    int i, j, k, l;
     char ans;
     int num_colors = 3 * STATES;
     char charState, state;
@@ -131,6 +135,7 @@ void CA::draw_CA(alglib::real_2d_array& training_data) {
 	     fscanf(f_in, " %c", &charState);
 	     state =  (int) charState - 48;
 	     layer[j] = state;
+	     // Draw cells as 3 x 3 blocks
 	     for (k = 0; k < 3; ++k)
 		fprintf(f_out, "%d %d %d ", colors[state*3], colors[state*3+1], colors[state*3+2]);
 	     if (i % 3 == 2)
@@ -184,32 +189,45 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
     int distractor_end = SEQUENCE_LENGTH - 5;
     int model_index;
     ae_int_t info;
-    ae_int_t nvars;
+    //ae_int_t nvars;   // for lrunpack()
     lrreport rep;
 
     for (model_index = 0; model_index < 3; ++model_index){
 	data_index = 0;
 	for (test_set = 0; test_set < TEST_SETS; ++test_set) {
 	    if (model_index == 2) {
-		for (i = 0; i < distractor_end; ++i) 
-		    training_data[data_index++][READOUT_LENGTH] = 1;
+		for (i = 0; i < distractor_end; ++i) {
+		    _targets[2][data_index] = 1;
+		    training_data[data_index][READOUT_LENGTH] = 1;
+		    ++data_index;
+		}
 	    }
 	    else {           // model_index == 0 or 1
-		for (i = 0; i < distractor_end; ++i) 
-		    training_data[data_index++][READOUT_LENGTH] = 0;
+		for (i = 0; i < distractor_end; ++i) {
+		    _targets[model_index][data_index] = 0;
+		    training_data[data_index][READOUT_LENGTH] = 0;
+		    ++data_index;
+		}
 	    }
 	    // Recall period
 	    for (time_step = 0; i < SEQUENCE_LENGTH; ++i, ++time_step) {
                 if (model_index == 0) {
-		    training_data[data_index++][READOUT_LENGTH] = 
+		    training_data[data_index][READOUT_LENGTH] = 
 			test_set >> time_step & 1;
+		    _targets[0][data_index] = training_data[data_index][READOUT_LENGTH];
+		    ++data_index;
 		}
 		else if (model_index == 1) {
-		    training_data[data_index++][READOUT_LENGTH] = 
+		    training_data[data_index][READOUT_LENGTH] = 
 			1 - (test_set >> time_step & 1);
+		    _targets[1][data_index] = training_data[data_index][READOUT_LENGTH];
+		    ++data_index;
 		}
-		else 
-		    training_data[data_index++][READOUT_LENGTH] = 0;
+		else {
+		    _targets[2][data_index] = 0;
+		    training_data[data_index][READOUT_LENGTH] = 0;
+		    ++data_index;
+		}
 	    }
 	}
 	cout << "Building linear regression model #" << model_index + 1 << endl;
@@ -225,6 +243,19 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 	lrunpack(output[i], coeffs, nvars);
 	printf("Coefficients: %s\n", coeffs.tostring(4).c_str());
     }*/
+
+    // Print out targets
+    /*cout << "Output\n";
+    for (i = 0; i < 32; ++i) {
+	cout << "Test set # " << i << endl;
+	for (int j = 0; j < 5; ++j) {
+	    cout << "\t" << _targets[0][i*210 +  205+j] << " " <<_targets[1][i*210 +  205+j] <<
+                " " << _targets[2][i*210 +  205+j] << endl;
+	}
+    }*/
+
+
+
 }
 
 /***************************************************************************************/
@@ -237,6 +268,7 @@ void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
     double result;
     int result_state;
 
+    cout << setprecision(4);
     model_input.setlength(READOUT_LENGTH);
     for (model_index = 0; model_index < 3; ++model_index) {
 	training_data_index = 0;
@@ -248,14 +280,17 @@ void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 		result = lrprocess(output[model_index], model_input);
 		// !!! This has to be adjusted for different #s of states !!!
 		result_state = result < .5 ? 0 : 1;
-		// TODO need to save and use targets for models 1 and 2
-                if (result_state != training_data[training_data_index][READOUT_LENGTH]) {
-                    cout << "0    ";
+                if (result_state != _targets[model_index][training_data_index]) {
 		    ++incorrect_predictions;
+		    cout << "Model: " << model_index+1 << "\tTest Set: " 
+			<< test_set << "\tSequence #: " << sequence_index + 1 << 
+			"\tCalcuated: " << result << "\tTarget: " <<
+			 _targets[model_index][training_data_index] << endl;
 		}
-		else cout << "1    ";
-		cout << result << "\t\t" << training_data[training_data_index][READOUT_LENGTH]
-		    << endl;
+		//else cout << "1    ";
+		//cout << result << "\t\t" << training_data[training_data_index][READOUT_LENGTH]
+		//    << endl;
+		//cout << result << "\t\t" << _targets[model_index][training_data_index] << endl;
 		++training_data_index;
 	    }
 	}
@@ -288,11 +323,13 @@ void CA::save_CA(real_2d_array& training_data) {
 //training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 void CA::train_5_bit(real_2d_array& training_data) {
     int time_step ,test_set;
-    int output_index, data_index = 0;
+    int data_index = 0;
     int distractor_end = SEQUENCE_LENGTH - 6;
     vector<int> input(4);
 
+    //cout << "Input\n";
     for (test_set = 0; test_set < TEST_SETS; ++test_set) {
+	//cout << "Test Set: " << test_set << endl;
 	// Input signal
 	for (time_step = 0; time_step < 5; ++time_step) {
 	    input[0] = test_set >> time_step & 1;
@@ -300,6 +337,7 @@ void CA::train_5_bit(real_2d_array& training_data) {
 	    input[2] = input[3] = 0;
 	    set_input(input);
             apply_rule(training_data, data_index++); 
+	    //cout << "\t" << input[0] << " " << input[1] << " " << input[2] << " " << input[3] << endl;
 	}
 	// Distractor period
 	for (; time_step < distractor_end; ++time_step) {

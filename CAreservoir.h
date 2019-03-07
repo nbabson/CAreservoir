@@ -4,7 +4,7 @@
 
 
 const int R 			= 8;  //8
-const int I 			= 2;
+const int I 			= 4;  //2
 const int DIFFUSE_LENGTH 	= 40; //40
 const int INPUT_LENGTH 		= 4;
 const int STATES 		= 2; 
@@ -18,6 +18,7 @@ const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
 
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
+const std::vector<int> RULE60 = {0,0,1,1,1,1,0,0};
 
 class CA {
     public:
@@ -41,6 +42,7 @@ class CA {
 	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH];  // [Row][Column]
 	std::vector<int> 		_rule;
 	int 				_iter;
+	std::vector<std::vector<int>> 	_targets;
 };
 
 class NegativeModulusException{};
