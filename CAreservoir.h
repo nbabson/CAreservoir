@@ -17,6 +17,7 @@ const int DISTRACTOR_PERIOD	= 200;
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
 
+const std::vector<int> RULE102 = {0,1,1,0,0,1,1,0};
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
 const std::vector<int> RULE60 = {0,0,1,1,1,1,0,0};
 

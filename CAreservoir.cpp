@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    ca.set_rule(RULE60);
+    ca.set_rule(RULE102);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     ca.build_5_bit_model(training_data, output);
 
     //ca.draw_CA(training_data);
-    //ca.save_CA(training_data);
+    ca.save_CA(training_data);
     ca.test_5_bit(training_data, output);
 
     return 0;
@@ -233,6 +233,8 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 	cout << "Building linear regression model #" << model_index + 1 << endl;
         lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		output[model_index], rep);    // Try lrbuildz()
+        //lrbuildz(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+	//	output[model_index], rep);    // Try lrbuildz()
         //cout << int(info) << endl;  // 1 for successful build
         //for  (time_step = 0; time_step < SEQUENCE_LENGTH*TEST_SETS; ++time_step)  // Print out targets
 	//     cout << training_data[time_step][READOUT_LENGTH] << "  ";
