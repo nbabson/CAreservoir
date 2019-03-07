@@ -184,14 +184,96 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
 /***************************************************************************************/
 
 void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& output) {
-    int time_step, test_set, data_index;
-    int i; // stop = SEQUENCE_LENGTH * TEST_SETS; 
+    int time_step1, test_set1, data_index1, data_index2, data_index3;
+    int time_step2, test_set2, test_set3;
+    int i, j, k, stop = SEQUENCE_LENGTH * TEST_SETS; 
     int distractor_end = SEQUENCE_LENGTH - 5;
-    int model_index;
+    //int model_index;
     ae_int_t info;
     //ae_int_t nvars;   // for lrunpack()
     lrreport rep;
 
+    // Copy data so regressions can be performed in parallel
+    real_2d_array training_data2;
+    real_2d_array training_data3;
+    training_data2.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+    training_data3.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+    for (i = 0; i < stop; ++i) {
+	for (j = 0; j < READOUT_LENGTH; ++j) {
+	    training_data3[i][j] = training_data2[i][j] = training_data[i][j];
+	}
+    }
+
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+	{   // model 0	
+	    data_index1 = 0;
+	    for (test_set1 = 0; test_set1 < TEST_SETS; ++test_set1) {
+		for (i = 0; i < distractor_end; ++i) {
+		    _targets[0][data_index1] = 0;
+		    training_data[data_index1][READOUT_LENGTH] = 0;
+		    ++data_index1;
+		}
+		// Recall period
+		for (time_step1 = 0; i < SEQUENCE_LENGTH; ++i, ++time_step1) {
+		    training_data[data_index1][READOUT_LENGTH] = 
+			test_set1 >> time_step1 & 1;
+		    _targets[0][data_index1] = training_data[data_index1][READOUT_LENGTH];
+		    ++data_index1;
+		}
+	    }
+	    cout << "Building linear regression model #1\n";
+	    lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+		    output[0], rep);    // Try lrbuildz()
+	}
+        #pragma omp section
+	{  // model 1
+	    data_index2 = 0;
+	    for (test_set2 = 0; test_set2 < TEST_SETS; ++test_set2) {
+		for (j = 0; j < distractor_end; ++j) {
+		    _targets[1][data_index2] = 0;
+		    training_data2[data_index2][READOUT_LENGTH] = 0;
+		    ++data_index2;
+		}
+		// Recall period
+		for (time_step2 = 0; j < SEQUENCE_LENGTH; ++j, ++time_step2) {
+		    training_data2[data_index2][READOUT_LENGTH] = 
+			1 - (test_set2 >> time_step2 & 1);
+		    _targets[1][data_index2] = training_data2[data_index2][READOUT_LENGTH];
+		    ++data_index2;
+		}
+	    }
+	    cout << "Building linear regression model #2\n";
+	    lrbuild(training_data2, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+		    output[1], rep);    // Try lrbuildz()
+	}
+        #pragma omp section
+	{ // model 2
+	    data_index3 = 0;
+	    for (test_set3 = 0; test_set3 < TEST_SETS; ++test_set3) {
+		for (k = 0; k < distractor_end; ++k) {
+		    _targets[2][data_index3] = 1;
+		    training_data3[data_index3][READOUT_LENGTH] = 1;
+		    ++data_index3;
+		}
+		// Recall period
+		for (; k < SEQUENCE_LENGTH; ++k) {
+		    _targets[2][data_index3] = 0;
+		    training_data3[data_index3][READOUT_LENGTH] = 0;
+		    ++data_index3;
+		}
+	    }
+	    cout << "Building linear regression model #3\n";
+	    lrbuild(training_data3, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+		    output[2], rep);    // Try lrbuildz()
+	}
+    }
+
+
+
+
+/*
     for (model_index = 0; model_index < 3; ++model_index){
 	data_index = 0;
 	for (test_set = 0; test_set < TEST_SETS; ++test_set) {
@@ -233,13 +315,14 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 	cout << "Building linear regression model #" << model_index + 1 << endl;
         lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		output[model_index], rep);    // Try lrbuildz()
+*/
         //lrbuildz(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 	//	output[model_index], rep);    // Try lrbuildz()
         //cout << int(info) << endl;  // 1 for successful build
         //for  (time_step = 0; time_step < SEQUENCE_LENGTH*TEST_SETS; ++time_step)  // Print out targets
 	//     cout << training_data[time_step][READOUT_LENGTH] << "  ";
 	//cout << "Training data #" << model_index + 1 << training_data.tostring(0).c_str() << endl;  
-    }
+    //}
     /*for (i = 0; i < 3; ++i) {     // Print out coefficients
 	real_1d_array coeffs;
 	lrunpack(output[i], coeffs, nvars);
