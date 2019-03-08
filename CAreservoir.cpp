@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 
 void parallel_5_bit() { 
     int success = 0;
-    int num_tests = 56;
+    int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
     omp_set_num_threads(32);
@@ -58,7 +58,7 @@ void parallel_5_bit() {
 	    CA ca;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    ca.set_rule(RULE60);
+	    ca.set_rule(RULE102);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";
