@@ -45,13 +45,14 @@ int main(int argc, char **argv) {
 
 void parallel_5_bit() { 
     int success = 0;
+    int num_tests = 56;
     omp_set_nested(1);
     // Don't exceed number of cores
     omp_set_num_threads(32);
     #pragma omp parallel
     {
         #pragma omp for nowait
-        for (size_t i = 0; i < 25; ++i) 
+        for (size_t i = 0; i < num_tests; ++i) 
 	{
             //omp_set_num_threads(3);
 	    CA ca;
@@ -72,7 +73,7 @@ void parallel_5_bit() {
 	    }
 	}
     }
-    cout << "Successful tests: " << success << endl;
+    cout << "Successful tests: " << success << ", out of " << num_tests << "." << endl;
 }
 
 /***************************************************************************************/
