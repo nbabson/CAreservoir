@@ -31,7 +31,7 @@ class CA {
         void build_5_bit_model(alglib::real_2d_array& training_data,
 		std::vector<alglib::linearmodel>& output);
 	void train_5_bit(alglib::real_2d_array& training_data);
-	void test_5_bit(alglib::real_2d_array& training_data, 
+	int test_5_bit(alglib::real_2d_array& training_data, 
 		std::vector<alglib::linearmodel>& output);
 	void check_CA(alglib::real_2d_array& training_data);
 	void draw_CA(alglib::real_2d_array& training_data);

@@ -8,24 +8,23 @@
 #include <iomanip>
 #include "dataanalysis.h"
 #include "CAreservoir.h"
+#include <omp.h>
 
 using namespace alglib;
 using namespace std;
 
+void parallel_5_bit();
 
 int main(int argc, char **argv) {
+    /*
     cout << "Mapping input to CA reservoir\n";
     srand(time(NULL));
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    ca.set_rule(RULE153);
+    ca.set_rule(RULE60);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
-
-          //         vector<int> in = {0,1,0,0};
-	//	   ca.set_input(in);
-        //    ca.test_CA(training_data);
 
     cout << "Building training data\n";
     ca.train_5_bit(training_data);
@@ -35,11 +34,46 @@ int main(int argc, char **argv) {
     //ca.draw_CA(training_data);
     ca.save_CA(training_data);
     ca.test_5_bit(training_data, output);
+    */
+
+    parallel_5_bit();
 
     return 0;
 }
 
+/***************************************************************************************/
 
+void parallel_5_bit() { 
+    int success = 0;
+    omp_set_nested(1);
+    // Don't exceed number of cores
+    omp_set_num_threads(32);
+    #pragma omp parallel
+    {
+        #pragma omp for nowait
+        for (size_t i = 0; i < 25; ++i) 
+	{
+            //omp_set_num_threads(3);
+	    CA ca;
+	    real_2d_array training_data;
+	    vector<linearmodel> output(3);
+	    ca.set_rule(RULE60);
+	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+
+	    cout << "Building training data\n";
+	    ca.train_5_bit(training_data);
+	    cout << "Building regression models\n";
+	    ca.build_5_bit_model(training_data, output);
+	    if (ca.test_5_bit(training_data, output) == 0) {
+                #pragma omp critical
+		{
+		    ++success;
+		}
+	    }
+	}
+    }
+    cout << "Successful tests: " << success << endl;
+}
 
 /***************************************************************************************/
 
@@ -53,8 +87,14 @@ CA::CA() {
     _rule.resize(RULELENGTH);
     _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
     // Initialize first row with 0s
-    for (i = 0; i < WIDTH; ++i)
-	_cell[0][i] = 0;
+    if (STATES < 3) {
+	for (i = 0; i < WIDTH; ++i)
+	    _cell[0][i] = 0;
+    }
+    else {
+	for (i = 0; i < WIDTH; ++i)
+	    _cell[0][i] = STATES - 1;
+    }
     for (i = 0; i < R; ++i) {
 	for (j = 0; j < INPUT_LENGTH; ++j) {
 	    do {
@@ -345,7 +385,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 
 /***************************************************************************************/
  
-void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
+int CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
     real_1d_array model_input;
     int incorrect_predictions = 0;
     int model_index = 0;
@@ -381,6 +421,7 @@ void CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 	}
     }
     cout << endl << incorrect_predictions << " incorrect predictions.\n";
+    return incorrect_predictions;
 }
 
 /***************************************************************************************/
