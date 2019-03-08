@@ -21,6 +21,7 @@ const std::vector<int> RULE102 = {0,1,1,0,0,1,1,0};
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
 const std::vector<int> RULE60 = {0,0,1,1,1,1,0,0};
 const std::vector<int> RULE153 = {1,0,0,1,1,0,0,1};
+const std::vector<int> RULE195 = {1,1,0,0,0,0,1,1};
 
 class CA {
     public:

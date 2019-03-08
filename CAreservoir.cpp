@@ -58,7 +58,7 @@ void parallel_5_bit() {
 	    CA ca;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    ca.set_rule(RULE102);
+	    ca.set_rule(RULE195);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";
