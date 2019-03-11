@@ -16,13 +16,14 @@ using namespace std;
 void parallel_5_bit();
 
 int main(int argc, char **argv) {
+    
     /*
     cout << "Mapping input to CA reservoir\n";
     srand(time(NULL));
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    ca.set_rule(RULE60);
+    ca.set_rule(RULE195);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
