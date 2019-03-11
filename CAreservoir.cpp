@@ -49,7 +49,7 @@ void parallel_5_bit() {
     int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
-    omp_set_num_threads(32);
+    omp_set_num_threads(16);
     #pragma omp parallel
     {
         #pragma omp for nowait
