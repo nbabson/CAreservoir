@@ -265,7 +265,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		}
 	    }
 	    cout << "Building linear regression model #1\n";
-	    lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+	    lrbuildz(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		    output[0], rep);    // Try lrbuildz()
 	}
         #pragma omp section
@@ -286,7 +286,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		}
 	    }
 	    cout << "Building linear regression model #2\n";
-	    lrbuild(training_data2, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+	    lrbuildz(training_data2, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		    output[1], rep);    // Try lrbuildz()
 	}
         #pragma omp section
@@ -306,7 +306,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 		}
 	    }
 	    cout << "Building linear regression model #3\n";
-	    lrbuild(training_data3, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
+	    lrbuildz(training_data3, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
 		    output[2], rep);    // Try lrbuildz()
 	}
     }
