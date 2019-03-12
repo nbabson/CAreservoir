@@ -63,7 +63,7 @@ void parallel_SVM() {
             //omp_set_num_threads(3);
 	    CA ca;
 	    real_2d_array training_data;
-	    ca.set_rule(RULE102);
+	    ca.set_rule(RULE60);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";

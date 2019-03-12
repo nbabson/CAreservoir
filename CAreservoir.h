@@ -4,7 +4,7 @@
 
 
 const int R 			= 4;  //8
-const int I 			= 2;  //2
+const int I 			= 4;  //2
 const int DIFFUSE_LENGTH 	= 40; //40
 const int INPUT_LENGTH 		= 4;  //4
 const int STATES 		= 2; 
