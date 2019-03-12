@@ -20,7 +20,6 @@ void parallel_SVM();
 
 int main(int argc, char **argv) {
     
-    //TODO doesn't work. writes to same files
     parallel_SVM();
     /*    
     cout << "Mapping input to CA reservoir\n";
@@ -52,13 +51,13 @@ int main(int argc, char **argv) {
 
 void parallel_SVM() {
     int success = 0;
-    int num_tests = 10;
+    int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
-    //omp_set_num_threads(8);
-    //#pragma omp parallel
-    ///{
-     ///   #pragma omp for nowait
+    omp_set_num_threads(16);
+    #pragma omp parallel
+    {
+        #pragma omp for nowait
         for (int i = 0; i < num_tests; ++i) 
 	{
             //omp_set_num_threads(3);
@@ -70,13 +69,13 @@ void parallel_SVM() {
 	    cout << "Building training data\n";
 	    ca.train_5_bit(training_data);
 	    if (ca.build_SVM_model(training_data) == 0) {
-//                #pragma omp critical
-//		{
+                #pragma omp critical
+		{
 		    ++success;
-//		}
+		}
 	    }
 	}
-    //}
+    }
     cout << "Successful tests: " << success << ", out of " << num_tests << "." << endl;
 }
 /***************************************************************************************/
@@ -269,15 +268,21 @@ int CA::build_SVM_model(real_2d_array& training_data) {
     int distractor_end = SEQUENCE_LENGTH - 5;
     int incorrect = 0;
     int SVMtag0, SVMtag1, SVMtag2;
+    string build_model = "./SVMTorch  SVM"; //0.dat SVM_model0";
+    string test_results = "./SVMTest -oa SVM_results"; //0.dat SVM_model0 SVM0.dat";
+    string output_file = "SVM_results";
+    ofstream out0, out1, out2;
+    ifstream in0, in1, in2;
+
+
+/*
     string build_model0 = "./SVMTorch  SVM0.dat SVM_model0";
     string build_model1 = "./SVMTorch  SVM1.dat SVM_model1";
     string build_model2 = "./SVMTorch  SVM2.dat SVM_model2";
     string test_results0 = "./SVMTest -oa SVM_results0.dat SVM_model0 SVM0.dat";
     string test_results1 = "./SVMTest -oa SVM_results1.dat SVM_model1 SVM1.dat";
     string test_results2 = "./SVMTest -oa SVM_results2.dat SVM_model2 SVM2.dat";
-    ofstream out0, out1, out2;
-    ifstream in0, in1, in2;
-
+*/
     #pragma omp parallel sections
     {
         #pragma omp section
@@ -306,12 +311,23 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 	    }
 	    // Build and test model
 	    out0.close();
-            system(build_model0.c_str());
-	    puts(build_model0.c_str());
-            system(test_results0.c_str());
-	    puts(test_results0.c_str());
+	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+            //system(build_model0.c_str());
+	    //puts(build_model0.c_str());
+            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            //system(test_results0.c_str());
+	    //puts(test_results0.c_str());
 	    //Count errors from SVMTest
-	    in0.open("SVM_results0.dat", ifstream::in);
+	    //in0.open("SVM_results0.dat", ifstream::in);
+	    in0.open((output_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ifstream::in);
 	    float x0;
 	    for (i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
 		in0 >> x0;
@@ -351,12 +367,23 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 	    }
 	    // Build and test model
 	    out1.close();
-            system(build_model1.c_str());
-	    puts(build_model1.c_str());
-            system(test_results1.c_str());
-	    puts(test_results1.c_str());
+	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+            //system(build_model1.c_str());
+	    //puts(build_model1.c_str());
+            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            //system(test_results1.c_str());
+	    //puts(test_results1.c_str());
 	    //Count errors from SVMTest
-	    in1.open("SVM_results1.dat", ifstream::in);
+	    //in1.open("SVM_results1.dat", ifstream::in);
+	    in1.open((output_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ifstream::in);
 	    float x;
 	    for (j = 0; j < SEQUENCE_LENGTH * TEST_SETS; ++j) {
 		in1 >> x;
@@ -396,12 +423,23 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 	    }
 	    // Build and test model
 	    out2.close();
-            system(build_model2.c_str());
-	    puts(build_model2.c_str());
-            system(test_results2.c_str());
-	    puts(test_results2.c_str());
+	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num())).c_str());
+            //system(build_model2.c_str());
+	    //puts(build_model2.c_str());
+            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
+			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
+			".dat").c_str());
+            //system(test_results2.c_str());
+	    //puts(test_results2.c_str());
 	    //Count errors from SVMTest
-	    in2.open("SVM_results2.dat", ifstream::in);
+	    //in2.open("SVM_results2.dat", ifstream::in);
+	    in2.open((output_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ifstream::in);
 	    float x2;
 	    for (k = 0; k < SEQUENCE_LENGTH * TEST_SETS; ++k) {
 		in2 >> x2;
