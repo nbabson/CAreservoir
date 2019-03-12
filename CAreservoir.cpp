@@ -9,6 +9,8 @@
 #include "dataanalysis.h"
 #include "CAreservoir.h"
 #include <omp.h>
+#include <iostream>
+#include <fstream>
 
 using namespace alglib;
 using namespace std;
@@ -17,27 +19,29 @@ void parallel_5_bit();
 
 int main(int argc, char **argv) {
     
-    /*
+    
     cout << "Mapping input to CA reservoir\n";
     srand(time(NULL));
     CA ca;
     real_2d_array training_data;
     vector<linearmodel> output(3);
-    ca.set_rule(RULE195);
+    ca.set_rule(RULE90);
     // Add one for target
     training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
     cout << "Building training data\n";
     ca.train_5_bit(training_data);
     cout << "Building regression models\n";
-    ca.build_5_bit_model(training_data, output);
+    //ca.build_5_bit_model(training_data, output);
+
+    ca.build_SVM_model(training_data);
 
     //ca.draw_CA(training_data);
     ca.save_CA(training_data);
-    ca.test_5_bit(training_data, output);
-    */
+    //ca.test_5_bit(training_data, output);
+    
 
-    parallel_5_bit();
+    //parallel_5_bit();
 
     return 0;
 }
@@ -220,6 +224,87 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
     for (i = 0; i < WIDTH; ++i)
 	_cell[0][i] = _cell[_iter][i];
     //cout << "Data_index: " << data_index << endl;
+}
+
+
+/***************************************************************************************/
+
+void CA::build_SVM_model(real_2d_array& training_data) {
+    int time_step1, test_set1, data_index1, data_index2, data_index3;
+    int time_step2, test_set2, test_set3;
+    int i, j, k, stop = SEQUENCE_LENGTH * TEST_SETS; 
+    int distractor_end = SEQUENCE_LENGTH - 5;
+    int incorrect = 0;
+    int SVMtag;
+    string build_model = "./SVMTorch  SVM.dat SVM_model";
+    string test_results = "./SVMTest -oa SVM_results.dat SVM_model SVM.dat";
+
+    #pragma omp parallel sections
+    {
+        #pragma omp section
+	{   // model 0	
+	    data_index1 = 0;
+	    for (test_set1 = 0; test_set1 < TEST_SETS; ++test_set1) {
+		for (i = 0; i < distractor_end; ++i) {
+		    _targets[0][data_index1] = 0;
+		    ++data_index1;
+		}
+		// Recall period
+		for (time_step1 = 0; i < SEQUENCE_LENGTH; ++i, ++time_step1) {
+		    _targets[0][data_index1] = test_set1 >> time_step1 & 1;
+	    	    ++data_index1;
+
+		}
+	    }
+	}
+        #pragma omp section
+	{  // model 1
+	    ofstream out;
+	    out.open("SVM.dat", ofstream::out);
+	    out << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
+	    data_index2 = 0;
+	    for (test_set2 = 0; test_set2 < TEST_SETS; ++test_set2) {
+		for (j = 0; j < distractor_end; ++j) {
+		    _targets[1][data_index2] = 0;
+		    ++data_index2;
+		}
+		// Recall period
+		for (time_step2 = 0; j < SEQUENCE_LENGTH; ++j, ++time_step2) {
+		    _targets[1][data_index2] = 1 - (test_set2 >> time_step2 & 1);
+		    ++data_index2;
+		}
+	    }
+
+            //training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+            for (int SVMr = 0; SVMr < SEQUENCE_LENGTH * TEST_SETS; ++SVMr) {
+		for (int SVMc = 0; SVMc < READOUT_LENGTH; ++SVMc) {
+		    out << training_data[SVMr][SVMc] << " ";
+		}
+                SVMtag = _targets[1][SVMr] == 1 ? 1 : -1; 
+		out << SVMtag << endl;
+	    }
+	    out.close();
+            system(build_model.c_str());
+	    puts(build_model.c_str());
+            system(test_results.c_str());
+	    puts(test_results.c_str());
+	}
+        #pragma omp section
+	{ // model 2
+	    data_index3 = 0;
+	    for (test_set3 = 0; test_set3 < TEST_SETS; ++test_set3) {
+		for (k = 0; k < distractor_end; ++k) {
+		    _targets[2][data_index3] = 1;
+		    ++data_index3;
+		}
+		// Recall period
+		for (; k < SEQUENCE_LENGTH; ++k) {
+		    _targets[2][data_index3] = 0;
+		    ++data_index3;
+		}
+	    }
+	}
+    }
 }
 
 
