@@ -54,7 +54,7 @@ void parallel_SVM() {
     int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
-    omp_set_num_threads(6);
+    omp_set_num_threads(16);
     #pragma omp parallel
     {
         #pragma omp for nowait
