@@ -4,8 +4,8 @@
 
 
 const int R 			= 4;  //8
-const int I 			= 4;  //2
-const int DIFFUSE_LENGTH 	= 40; //40
+const int I 			= 2;  //2
+const int DIFFUSE_LENGTH 	= 20; //40
 const int INPUT_LENGTH 		= 4;  //4
 const int STATES 		= 2; 
 const int NEIGHBORHOOD 		= 3;
@@ -26,6 +26,7 @@ const std::vector<int> RULE150 = {1,0,0,1,0,1,1,0};
 const std::vector<int> RULE1 = {0,0,0,0,0,0,0,1};
 const std::vector<int> RULE0 = {0,0,0,0,0,0,0,0};
 const std::vector<int> RULE30 = {0,0,0,1,1,1,1,0};
+const std::vector<int> RULE180 = {1,0,1,1,0,1,0,0};
 
 //const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,0,0,2,2};
 const std::vector<int> RULE3_3 = {2,2,2,2,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2};
