@@ -3,10 +3,10 @@
 #define CARESERVOIR_H
 
 
-const int R 			= 8;  //8
+const int R 			= 4;  //8
 const int I 			= 2;  //2
-const int DIFFUSE_LENGTH 	= 40; //40
-const int INPUT_LENGTH 		= 4;
+const int DIFFUSE_LENGTH 	= 20; //40
+const int INPUT_LENGTH 		= 4;  //4
 const int STATES 		= 2; 
 const int NEIGHBORHOOD 		= 3;
 const int RULELENGTH 		= pow(STATES, NEIGHBORHOOD);
@@ -24,7 +24,8 @@ const std::vector<int> RULE153 = {1,0,0,1,1,0,0,1};
 const std::vector<int> RULE195 = {1,1,0,0,0,0,1,1};
 const std::vector<int> RULE150 = {1,0,0,1,0,1,1,0};
 const std::vector<int> RULE1 = {0,0,0,0,0,0,0,1};
-
+const std::vector<int> RULE0 = {0,0,0,0,0,0,0,0};
+const std::vector<int> RULE30 = {0,0,0,1,1,1,1,0};
 
 //const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,0,0,2,2};
 const std::vector<int> RULE3_3 = {2,2,2,2,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2};
@@ -43,7 +44,7 @@ class CA {
 	void check_CA(alglib::real_2d_array& training_data);
 	void draw_CA(alglib::real_2d_array& training_data);
 	void save_CA(alglib::real_2d_array& training_data);
-	void build_SVM_model(alglib::real_2d_array& training_data);
+	int build_SVM_model(alglib::real_2d_array& training_data);
 
     private:
         int mod(int x, int y);
