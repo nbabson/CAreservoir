@@ -54,7 +54,7 @@ void parallel_SVM() {
     int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
-    omp_set_num_threads(16);
+    omp_set_num_threads(8);
     #pragma omp parallel
     {
         #pragma omp for nowait
@@ -67,6 +67,7 @@ void parallel_SVM() {
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";
+	    ca.train_5_bit(training_data);
 	    if (ca.build_SVM_model(training_data) == 0) {
                 #pragma omp critical
 		{
