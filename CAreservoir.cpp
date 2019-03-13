@@ -271,6 +271,7 @@ int CA::build_SVM_model(real_2d_array& training_data) {
     string build_model = "./SVMTorch  SVM"; //0.dat SVM_model0";
     string test_results = "./SVMTest -oa SVM_results"; //0.dat SVM_model0 SVM0.dat";
     string output_file = "SVM_results";
+    string data_file = "SVM";
     ofstream out0, out1, out2;
     ifstream in0, in1, in2;
 
@@ -287,7 +288,8 @@ int CA::build_SVM_model(real_2d_array& training_data) {
     {
         #pragma omp section
 	{   // model 0	
-	    out0.open("SVM0.dat", ofstream::out);
+	    //out0.open("SVM.dat", ofstream::out);
+	    out0.open((data_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ofstream::out);
 	    out0 << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
 	    data_index1 = 0;
 	    for (test_set1 = 0; test_set1 < TEST_SETS; ++test_set1) {
@@ -343,7 +345,8 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 	}
         #pragma omp section
 	{  // model 1
-	    out1.open("SVM1.dat", ofstream::out);
+	    //out1.open("SVM1.dat", ofstream::out);
+	    out1.open((data_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ofstream::out);
 	    out1 << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
 	    data_index2 = 0;
 	    for (test_set2 = 0; test_set2 < TEST_SETS; ++test_set2) {
@@ -399,7 +402,8 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 	}
         #pragma omp section
 	{ // model 2
-	    out2.open("SVM2.dat", ofstream::out);
+	    //out2.open("SVM2.dat", ofstream::out);
+	    out2.open((data_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ofstream::out);
 	    out2 << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
 	    data_index3 = 0;
 	    for (test_set3 = 0; test_set3 < TEST_SETS; ++test_set3) {
