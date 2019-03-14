@@ -15,64 +15,49 @@
 using namespace alglib;
 using namespace std;
 
-void parallel_5_bit();
+typedef struct {
+    bool draw;
+    bool parallel;
+    bool svm;
+    int runs;
+    int cores;
+    string rule_file;
+} parameters;
+
+void parallel_5_bit(int num_tests, int num_threads, string rule_file);
 void parallel_SVM(int num_tests, int cores, string rule_file);
+void parse_cmd_line(int argc, char** argv, parameters* params);
 void usage();
 
 int main(int argc, char **argv) {
-    int arg_index = 1;
-    int max_arg = argc - 2;
-    bool error = true;
-    bool draw = false;
-    bool parallel = false;
-    int runs, cores;
+    parameters params;
 
-    if (argc < 3) 
-	usage();
-    while (arg_index < max_arg) {
-	if (!strcmp(argv[arg_index], "-d")) {
-	    draw = true;
-	    error = false;
-	}
-	else if (!strcmp(argv[arg_index], "-p")) {
-	    parallel = true;
-            runs = atoi(argv[++arg_index]);
-	    cores = atoi(argv[++arg_index]);
-	    error = false;
-	}
-	else if (!strcmp(argv[arg_index], "-r")) {
-	    R = atoi(argv[++arg_index]);
-	    WIDTH = DIFFUSE_LENGTH * R;
-	    READOUT_LENGTH = R * DIFFUSE_LENGTH * I;
-	    error = false;
-	}
-	++arg_index;
-	if (error)
-	    usage();
-    }
-    STATES = atoi(argv[arg_index]);
-    RULELENGTH = pow(STATES, NEIGHBORHOOD);
-    ++arg_index;
-    string rule_file(argv[arg_index]);
-        
+    parse_cmd_line(argc, argv, &params);    
     try {
 	srand(time(NULL));
-	if (parallel)
-	    parallel_SVM(runs, cores, rule_file);
+	if (params.parallel) {
+	    if (params.svm)
+	        parallel_SVM(params.runs, params.cores, params.rule_file);
+	    else
+		parallel_5_bit(params.runs, params.cores, params.rule_file);
+	}
 	else {
 	    CA ca;
-	    ca.load_rule(rule_file);
+	    ca.load_rule(params.rule_file);
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    //ca.set_rule(RULE3_3);
 	    // Add one for target
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 	    cout << "Building training data\n";
 	    ca.train_5_bit(training_data);
-	    //ca.build_5_bit_model(training_data, output);
 	    ca.set_5_bit_targets();
-	    ca.build_SVM_model(training_data);
-	    if (draw)
+	    if (params.svm)
+	        ca.build_SVM_model(training_data);
+	    else {
+	        ca.build_5_bit_model(training_data, output);
+		ca.test_5_bit(training_data, output);
+	    }
+	    if (params.draw)
 		ca.save_CA(training_data);
 	}
     }
@@ -85,12 +70,67 @@ int main(int argc, char **argv) {
 
 /***************************************************************************************/
 
+void parse_cmd_line(int argc, char** argv, parameters* params) {
+    int arg_index = 1;
+    int max_arg = argc - 2;
+    bool error = true;
+
+    params -> draw = false;
+    params -> parallel = false;
+    params -> svm = true;
+
+    if (argc < 3) 
+	usage();
+    while (arg_index < max_arg) {
+	if (!strcmp(argv[arg_index], "-d")) {
+	    params -> draw = true;
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-p")) {
+	    params -> parallel = true;
+            params -> runs = atoi(argv[++arg_index]);
+	    params -> cores = atoi(argv[++arg_index]);
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-r")) {
+	    R = atoi(argv[++arg_index]);
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-i")) {
+	    I = atoi(argv[++arg_index]);
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-lr")) {
+	    params -> svm = false;
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-dl")) {
+            DIFFUSE_LENGTH = atoi(argv[++arg_index]);
+	    error = false;
+	}
+	++arg_index;
+	if (error)
+	    usage();
+    }
+    WIDTH = DIFFUSE_LENGTH * R;
+    READOUT_LENGTH = R * DIFFUSE_LENGTH * I;
+    STATES = atoi(argv[arg_index]);
+    RULELENGTH = pow(STATES, NEIGHBORHOOD);
+    ++arg_index;
+    params -> rule_file = argv[arg_index];
+}
+
+/***************************************************************************************/
+
 void usage() {
     cout << "Usage: CAreservoir [options] <# of states> <rule file>\n";
     cout << "Options:\n";
+    cout << "-lr              -> use linear regression (instead of SVM)\n";
     cout << "-d 	      -> save CA to ca.txt and draw in ca.ppm\n";
     cout << "-p <int1> <int2> -> parallel: <int1> runs on up to <int2> cores\n"; 
     cout << "-r <int>         -> change R, # of reservoirs\n"; 
+    cout << "-i <int>         -> change I, # of CA iterations\n"; 
+    cout << "-dl <int>        -> change DIFFUSION_LENGTH, size of reservoirs\n";
     exit(0);
 }
 
@@ -135,12 +175,11 @@ void parallel_SVM(int num_tests, int cores, string rule_file) {
 }
 /***************************************************************************************/
 
-void parallel_5_bit() { 
+void parallel_5_bit(int num_tests, int num_threads, string rule_file) { 
     int success = 0;
-    int num_tests = 100;
     omp_set_nested(1);
     // Don't exceed number of cores
-    omp_set_num_threads(16);
+    omp_set_num_threads(num_threads);
     #pragma omp parallel
     {
         #pragma omp for nowait
@@ -150,7 +189,7 @@ void parallel_5_bit() {
 	    CA ca;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    ca.set_rule(RULE195);
+	    ca.load_rule(rule_file);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";

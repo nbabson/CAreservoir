@@ -4,8 +4,8 @@
 
 
 int R 		        	= 4;  //8
-const int I 			= 2;  //2
-const int DIFFUSE_LENGTH 	= 20; //40
+int I 	        		= 2;  //2
+int DIFFUSE_LENGTH      	= 20; //40
 const int INPUT_LENGTH 		= 4;  //4
 int STATES 	        	= 3; 
 const int NEIGHBORHOOD 		= 3;
