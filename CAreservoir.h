@@ -7,11 +7,11 @@ int R 		        	= 4;  //8
 const int I 			= 2;  //2
 const int DIFFUSE_LENGTH 	= 20; //40
 const int INPUT_LENGTH 		= 4;  //4
-int STATES 		= 3; 
+int STATES 	        	= 3; 
 const int NEIGHBORHOOD 		= 3;
-int RULELENGTH 		= pow(STATES, NEIGHBORHOOD);
-const int WIDTH			= DIFFUSE_LENGTH * R;
-const int READOUT_LENGTH	= R * DIFFUSE_LENGTH * I;
+int RULELENGTH 	        	= pow(STATES, NEIGHBORHOOD);
+int WIDTH			= DIFFUSE_LENGTH * R;
+int READOUT_LENGTH	        = R * DIFFUSE_LENGTH * I;
 const int DISTRACTOR_PERIOD	= 200;
 // For 5-bit memory task
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;

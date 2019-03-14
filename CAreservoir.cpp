@@ -42,6 +42,8 @@ int main(int argc, char **argv) {
 	}
 	else if (!strcmp(argv[arg_index], "-r")) {
 	    R = atoi(argv[++arg_index]);
+	    WIDTH = DIFFUSE_LENGTH * R;
+	    READOUT_LENGTH = R * DIFFUSE_LENGTH * I;
 	    error = false;
 	}
 	++arg_index;
