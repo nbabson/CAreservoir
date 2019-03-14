@@ -35,15 +35,16 @@ int main(int argc, char **argv) {
     cout << "Building regression models\n";
     //ca.build_5_bit_model(training_data, output);
 
+    ca.set_5_bit_targets();
     ca.build_SVM_model(training_data);
 
     //ca.draw_CA(training_data);
     ca.save_CA(training_data);
     //ca.test_5_bit(training_data, output);
-    
+  */  
 
     //parallel_5_bit();
-  */  
+   
     return 0;
 }
 
@@ -53,6 +54,7 @@ void parallel_SVM() {
     int success = 0;
     int num_tests = 2;
     omp_set_nested(1);
+    srand(time(NULL));
     // Don't exceed number of cores
     //omp_set_num_threads(16);
     #pragma omp parallel
@@ -68,6 +70,7 @@ void parallel_SVM() {
 
 	    cout << "Building training data\n";
 	    ca.train_5_bit(training_data);
+            ca.set_5_bit_targets();
 	    if (ca.build_SVM_model(training_data) == 0) {
                 #pragma omp critical
 		{
@@ -123,6 +126,8 @@ CA::CA() {
     _map.resize(R, vector<int>(INPUT_LENGTH));
     _cell.resize(I + 1, vector<int>(WIDTH));
     _rule.resize(RULELENGTH);
+    _out.resize(MAX_THREADS);
+    _in.resize(MAX_THREADS);
     _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
     // Initialize first row with 0s
     if (STATES < 3) {
@@ -261,197 +266,95 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
 
 /***************************************************************************************/
 
-int CA::build_SVM_model(real_2d_array& training_data) {
-    int time_step1, test_set1, data_index1, data_index2, data_index3;
-    int time_step2, test_set2, test_set3;
-    int i, j, k, stop = SEQUENCE_LENGTH * TEST_SETS; 
+void CA::set_5_bit_targets() {
+    int data_index, i, test_set, time_step;
     int distractor_end = SEQUENCE_LENGTH - 5;
-    int incorrect = 0;
-    int SVMtag0, SVMtag1, SVMtag2;
-    string build_model = "./SVMTorch  SVM"; //0.dat SVM_model0";
-    string test_results = "./SVMTest -oa SVM_results"; //0.dat SVM_model0 SVM0.dat";
+
+    data_index = 0;
+    for (test_set = 0; test_set < TEST_SETS; ++test_set) {
+	for (i = 0; i < distractor_end; ++i) {
+	    _targets[0][data_index] = 0;
+            _targets[1][data_index] = 0;
+            _targets[2][data_index] = 1;
+	    ++data_index;
+	}
+	// Recall period
+	for (time_step = 0; i < SEQUENCE_LENGTH; ++i, ++time_step) {
+	    _targets[0][data_index] = test_set >> time_step & 1;
+            _targets[1][data_index] = 1 - (test_set >> time_step & 1);
+	    _targets[2][data_index] = 0;
+	    ++data_index;
+	}
+    }
+}
+
+/***************************************************************************************/
+   
+void CA::call_SVM_functions(int model, int& incorrect, real_2d_array training_data) {
+    string build_model = "./SVMTorch  SVM"; 
+    string test_results = "./SVMTest -oa SVM_results"; 
     string output_file = "SVM_results";
     string data_file = "SVM";
-    //ofstream out0, out1, out2;
-    //ifstream in0, in1, in2;
-    vector<ofstream> out(64);
-    vector<ifstream> in(64);
+    int SVMtag;
+    int tid = omp_get_thread_num();
+    int system_result;
 
+    _out[tid].open((data_file + to_string(tid) +".dat").c_str(), ofstream::out);
+    _out[tid] << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
+    // Build input file for SVMTorch
+    for (int i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
+	for (int j = 0; j < READOUT_LENGTH; ++j) {
+	    _out[tid] << training_data[i][j] << " ";
+	}
+	SVMtag = _targets[model][i] == 1 ? 1 : -1; 
+	_out[tid] << SVMtag << endl;
+    }
+    // Build and test model
+    _out[tid].close();
+    #pragma omp critical
+    {
+        system_result = system((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
+        puts((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
+    }
+    #pragma omp critical
+    {
+        system_result = system((test_results + to_string(tid) + ".dat SVM_model" + 
+	    	to_string(tid) + " SVM" + to_string(tid) + ".dat").c_str());
+        puts((test_results + to_string(tid) + ".dat SVM_model" +
+		to_string(tid) + " SVM" + to_string(tid) + ".dat").c_str());
+    }
+    _in[tid].open((output_file + to_string(tid) + ".dat").c_str(), ifstream::in);
+    float result;
+    for (int i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
+	_in[tid] >> result;
+	if ((result < 0 && _targets[model][i] == 1) || (result >= 0 && _targets[model][i] == 0)) { 
+	    #pragma omp critical
+	    {
+		++incorrect;
+	    }
+	}
+    }
+    _in[tid].close();
+}
 
-/*
-    string build_model0 = "./SVMTorch  SVM0.dat SVM_model0";
-    string build_model1 = "./SVMTorch  SVM1.dat SVM_model1";
-    string build_model2 = "./SVMTorch  SVM2.dat SVM_model2";
-    string test_results0 = "./SVMTest -oa SVM_results0.dat SVM_model0 SVM0.dat";
-    string test_results1 = "./SVMTest -oa SVM_results1.dat SVM_model1 SVM1.dat";
-    string test_results2 = "./SVMTest -oa SVM_results2.dat SVM_model2 SVM2.dat";
-*/
+/***************************************************************************************/
+
+int CA::build_SVM_model(real_2d_array& training_data) {
+    int incorrect = 0;
+
     #pragma omp parallel sections
     {
 	#pragma omp section
-	{   // model 0	//out0.open("SVM.dat", ofstream::out);
-	    //out0.open("SVM.dat", ofstream::out);
-	    out[omp_get_thread_num()].open((data_file + to_string(omp_get_thread_num()) +
-		       	".dat").c_str(), ofstream::out);
-	    out[omp_get_thread_num()] << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH +
-	       	1 << endl;
-	    data_index1 = 0;
-	    for (test_set1 = 0; test_set1 < TEST_SETS; ++test_set1) {
-		for (i = 0; i < distractor_end; ++i) {
-		    _targets[0][data_index1] = 0;
-		    ++data_index1;
-		}
-		// Recall period
-		for (time_step1 = 0; i < SEQUENCE_LENGTH; ++i, ++time_step1) {
-		    _targets[0][data_index1] = test_set1 >> time_step1 & 1;
-	    	    ++data_index1;
-		}
-	    }
-            // Build input file for SVMTorch
-            for (i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
-		for (time_step1 = 0; time_step1 < READOUT_LENGTH; ++time_step1) {
-		    out[omp_get_thread_num()] << training_data[i][time_step1] << " ";
-		}
-                SVMtag0 = _targets[0][i] == 1 ? 1 : -1; 
-		out[omp_get_thread_num()] << SVMtag0 << endl;
-	    }
-	    // Build and test model
-	    out[omp_get_thread_num()].close();
-	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-            //system(build_model0.c_str());
-	    //puts(build_model0.c_str());
-            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-            //system(test_results0.c_str());
-	    //puts(test_results0.c_str());
-	    //Count errors from SVMTest
-	    //in0.open("SVM_results0.dat", ifstream::in);
-	    in[omp_get_thread_num()].open((output_file + to_string(omp_get_thread_num()) + ".dat").c_str(), ifstream::in);
-	    float x0;
-	    for (i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
-		in[omp_get_thread_num()] >> x0;
-		if ((x0<0 && _targets[0][i] == 1) || (x0>=0 && _targets[0][i] == 0)) { 
-                    #pragma omp critical
-		    {
-			//cout << x0 << "  Model0   " << _targets[0][i] << endl;
-			++incorrect;
-		    }
-		}
-	    }
-	    in[omp_get_thread_num()].close();
+	{   // model 0
+	    call_SVM_functions(0, incorrect, training_data);
 	}
        #pragma omp section
 	{  // model 1
-	    //out1.open("SVM1.dat", ofstream::out);
-	    out[omp_get_thread_num()].open((data_file + to_string(omp_get_thread_num()) +
-		       	".dat").c_str(), ofstream::out);
-	    out[omp_get_thread_num()] << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1
-	       	<< endl;
-	    data_index2 = 0;
-	    for (test_set2 = 0; test_set2 < TEST_SETS; ++test_set2) {
-		for (j = 0; j < distractor_end; ++j) {
-		    _targets[1][data_index2] = 0;
-		    ++data_index2;
-		}
-		// Recall period
-		for (time_step2 = 0; j < SEQUENCE_LENGTH; ++j, ++time_step2) {
-		    _targets[1][data_index2] = 1 - (test_set2 >> time_step2 & 1);
-		    ++data_index2;
-		}
-	    }
-            // Build input file for SVMTorch
-            for (int SVMr = 0; SVMr < SEQUENCE_LENGTH * TEST_SETS; ++SVMr) {
-		for (int SVMc = 0; SVMc < READOUT_LENGTH; ++SVMc) {
-		    out[omp_get_thread_num()] << training_data[SVMr][SVMc] << " ";
-		}
-                SVMtag1 = _targets[1][SVMr] == 1 ? 1 : -1; 
-		out[omp_get_thread_num()] << SVMtag1 << endl;
-	    }
-	    // Build and test model
-	    out[omp_get_thread_num()].close();
-	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-	    in[omp_get_thread_num()].open((output_file + to_string(omp_get_thread_num()) +
-		       	".dat").c_str(), ifstream::in);
-	    float x;
-	    for (j = 0; j < SEQUENCE_LENGTH * TEST_SETS; ++j) {
-		in[omp_get_thread_num()] >> x;
-		if ((x<0 && _targets[1][j] == 1) || (x>=0 && _targets[1][j] == 0)) { 
-                    #pragma omp critical
-		    {
-			++incorrect;
-		    }
-		}
-	    }
-	    in[omp_get_thread_num()].close();
+	    call_SVM_functions(1, incorrect, training_data);
 	}
 	#pragma omp section
 	{ // model 2
-	    out[omp_get_thread_num()].open((data_file + to_string(omp_get_thread_num()) +
-		       	".dat").c_str(), ofstream::out);
-	    out[omp_get_thread_num()] << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 
-		<< endl;
-	    data_index3 = 0;
-	    for (test_set3 = 0; test_set3 < TEST_SETS; ++test_set3) {
-		for (k = 0; k < distractor_end; ++k) {
-		    _targets[2][data_index3] = 1;
-		    ++data_index3;
-		}
-		// Recall period
-		for (; k < SEQUENCE_LENGTH; ++k) {
-		    _targets[2][data_index3] = 0;
-		    ++data_index3;
-		}
-	    }
-            // Build input file for SVMTorch
-            for (k = 0; k < SEQUENCE_LENGTH * TEST_SETS; ++k) {
-		for (test_set3 = 0; test_set3 < READOUT_LENGTH; ++test_set3) {
-		    out[omp_get_thread_num()] << training_data[k][test_set3] << " ";
-		}
-                SVMtag2 = _targets[2][k] == 1 ? 1 : -1; 
-		out[omp_get_thread_num()] << SVMtag2 << endl;
-	    }
-	    // Build and test model
-	    out[omp_get_thread_num()].close();
-	    system((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-	    puts((build_model + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num())).c_str());
-            system((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-            puts((test_results + to_string(omp_get_thread_num()) + ".dat SVM_model" +
-			to_string(omp_get_thread_num()) + " SVM" + to_string(omp_get_thread_num()) +
-			".dat").c_str());
-	    in[omp_get_thread_num()].open((output_file + to_string(omp_get_thread_num()) +
-		       	".dat").c_str(), ifstream::in);
-	    float x2;
-	    for (k = 0; k < SEQUENCE_LENGTH * TEST_SETS; ++k) {
-		in[omp_get_thread_num()] >> x2;
-		if ((x2<0 && _targets[2][k] == 1) || (x2>=0 && _targets[2][k] == 0)) { 
-                    #pragma omp critical
-		    {
-			//cout << x2 << "  Model2  " << _targets[2][k] << endl;
-			++incorrect;
-		    }
-		}
-	    }
-	    in[omp_get_thread_num()].close();
+	    call_SVM_functions(2, incorrect, training_data);
 	}
     }
     cout << "\nIncorrect: " << incorrect << endl;

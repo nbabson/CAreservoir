@@ -16,6 +16,7 @@ const int DISTRACTOR_PERIOD	= 200;
 // For 5-bit memory task
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
+const int MAX_THREADS           = 64;
 
 const std::vector<int> RULE102 = {0,1,1,0,0,1,1,0};
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
@@ -46,15 +47,20 @@ class CA {
 	void draw_CA(alglib::real_2d_array& training_data);
 	void save_CA(alglib::real_2d_array& training_data);
 	int build_SVM_model(alglib::real_2d_array& training_data);
+	void set_5_bit_targets();
 
     private:
         int mod(int x, int y);
 	int base_N_to_dec(int num[], int base, int length);
+        void call_SVM_functions(int model, int& incorrect, alglib::real_2d_array training_data);
+
 	std::vector<std::vector<int>> 	_map;  // [R][INPUT_LENGTH]
 	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH];  // [Row][Column]
 	std::vector<int> 		_rule;
 	int 				_iter;
 	std::vector<std::vector<int>> 	_targets;
+	std::vector<std::ofstream>      _out;
+	std::vector<std::ifstream>      _in;
 };
 
 class NegativeModulusException{};
