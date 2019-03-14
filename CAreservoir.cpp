@@ -104,18 +104,24 @@ void parallel_SVM(int num_tests, int cores, string rule_file) {
 	    CA ca;
 	    real_2d_array training_data;
 	    //ca.set_rule(RULE90);
-	    ca.load_rule(rule_file);
-	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+	    try {
+	        ca.load_rule(rule_file);
+		training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
-	    cout << "Building training data\n";
-	    ca.train_5_bit(training_data);
-            ca.set_5_bit_targets();
-	    if (ca.build_SVM_model(training_data) == 0) {
-                #pragma omp critical
-		{
-		    ++success;
+		cout << "Building training data\n";
+		ca.train_5_bit(training_data);
+		ca.set_5_bit_targets();
+		if (ca.build_SVM_model(training_data) == 0) {
+		    #pragma omp critical
+		    {
+			++success;
+		    }
 		}
 	    }
+	    catch(IncorrectRuleLengthException e)
+	    {
+		cout << "Error: rule length does not match number of states and neighborhood.\n";
+	    }	    
 	}
     }
     cout << "Successful tests: " << success << ", out of " << num_tests << "." << endl;
@@ -202,7 +208,8 @@ void CA::load_rule(string rule_file) {
 	    throw IncorrectRuleLengthException();
 	_rule[i] = x - 48;
     }
-    if (in >> x)
+    //in >> x;
+    if (in.eof())
 	throw IncorrectRuleLengthException();
 }
 
