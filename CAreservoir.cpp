@@ -40,6 +40,10 @@ int main(int argc, char **argv) {
 	    cores = atoi(argv[++arg_index]);
 	    error = false;
 	}
+	else if (!strcmp(argv[arg_index], "-r")) {
+	    R = atoi(argv[++arg_index]);
+	    error = false;
+	}
 	++arg_index;
 	if (error)
 	    usage();
@@ -82,8 +86,9 @@ int main(int argc, char **argv) {
 void usage() {
     cout << "Usage: CAreservoir [options] <# of states> <rule file>\n";
     cout << "Options:\n";
-    cout << "-d 		  -> save CA to ca.txt and draw in ca.ppm\n";
+    cout << "-d 	      -> save CA to ca.txt and draw in ca.ppm\n";
     cout << "-p <int1> <int2> -> parallel: <int1> runs on up to <int2> cores\n"; 
+    cout << "-r <int>         -> change R, # of reservoirs\n"; 
     exit(0);
 }
 
