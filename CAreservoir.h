@@ -7,16 +7,16 @@ const int R 			= 4;  //8
 const int I 			= 2;  //2
 const int DIFFUSE_LENGTH 	= 20; //40
 const int INPUT_LENGTH 		= 4;  //4
-const int STATES 		= 2; 
+int STATES 		= 3; 
 const int NEIGHBORHOOD 		= 3;
-const int RULELENGTH 		= pow(STATES, NEIGHBORHOOD);
+int RULELENGTH 		= pow(STATES, NEIGHBORHOOD);
 const int WIDTH			= DIFFUSE_LENGTH * R;
 const int READOUT_LENGTH	= R * DIFFUSE_LENGTH * I;
 const int DISTRACTOR_PERIOD	= 200;
 // For 5-bit memory task
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
-const int MAX_THREADS           = 64;
+const int MAX_THREADS           = 32;
 
 const std::vector<int> RULE102 = {0,1,1,0,0,1,1,0};
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
@@ -29,14 +29,15 @@ const std::vector<int> RULE0 = {0,0,0,0,0,0,0,0};
 const std::vector<int> RULE30 = {0,0,0,1,1,1,1,0};
 const std::vector<int> RULE180 = {1,0,1,1,0,1,0,0};
 
-//const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,0,0,2,2};
-const std::vector<int> RULE3_3 = {2,2,2,2,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2};
+const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,0,0,2,2};
+//const std::vector<int> RULE3_3 = {2,2,2,2,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2};
 
 class CA {
     public:
 	CA();
 	void set_input(std::vector<int> input);
 	void set_rule(std::vector<int> rule);
+	void load_rule(std::string rule_file);
 	void apply_rule(alglib::real_2d_array& training_data, int data_index);
         void build_5_bit_model(alglib::real_2d_array& training_data,
 		std::vector<alglib::linearmodel>& output);
@@ -59,11 +60,10 @@ class CA {
 	std::vector<int> 		_rule;
 	int 				_iter;
 	std::vector<std::vector<int>> 	_targets;
-	std::vector<std::ofstream>      _out;
-	std::vector<std::ifstream>      _in;
 };
 
 class NegativeModulusException{};
+class IncorrectRuleLengthException{};
 
 
 #endif

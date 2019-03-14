@@ -16,47 +16,85 @@ using namespace alglib;
 using namespace std;
 
 void parallel_5_bit();
-void parallel_SVM();
+void parallel_SVM(int num_tests, int cores, string rule_file);
+void usage();
 
 int main(int argc, char **argv) {
-    
-    parallel_SVM();
-/*    
-    cout << "Mapping input to CA reservoir\n";
-    srand(time(NULL));
-    CA ca;
-    real_2d_array training_data;
-    vector<linearmodel> output(3);
-    ca.set_rule(RULE90);
-    // Add one for target
-    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
-    cout << "Building training data\n";
-    ca.train_5_bit(training_data);
-    cout << "Building regression models\n";
-    //ca.build_5_bit_model(training_data, output);
+    int arg_index = 1;
+    int max_arg = argc - 2;
+    bool error = true;
+    bool draw = false;
+    bool parallel = false;
+    int runs, cores;
 
-    ca.set_5_bit_targets();
-    ca.build_SVM_model(training_data);
-
-    //ca.draw_CA(training_data);
-    ca.save_CA(training_data);
-    //ca.test_5_bit(training_data, output);
-  */  
-
-    //parallel_5_bit();
-   
+    if (argc < 3) 
+	usage();
+    while (arg_index < max_arg) {
+	if (!strcmp(argv[arg_index], "-d")) {
+	    draw = true;
+	    error = false;
+	}
+	else if (!strcmp(argv[arg_index], "-p")) {
+	    parallel = true;
+            runs = atoi(argv[++arg_index]);
+	    cores = atoi(argv[++arg_index]);
+	    error = false;
+	}
+	++arg_index;
+	if (error)
+	    usage();
+    }
+    STATES = atoi(argv[arg_index]);
+    RULELENGTH = pow(STATES, NEIGHBORHOOD);
+    ++arg_index;
+    string rule_file(argv[arg_index]);
+        
+    try {
+	srand(time(NULL));
+	if (parallel)
+	    parallel_SVM(runs, cores, rule_file);
+	else {
+	    CA ca;
+	    ca.load_rule(rule_file);
+	    real_2d_array training_data;
+	    vector<linearmodel> output(3);
+	    //ca.set_rule(RULE3_3);
+	    // Add one for target
+	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+	    cout << "Building training data\n";
+	    ca.train_5_bit(training_data);
+	    //ca.build_5_bit_model(training_data, output);
+	    ca.set_5_bit_targets();
+	    ca.build_SVM_model(training_data);
+	    if (draw)
+		ca.save_CA(training_data);
+	}
+    }
+    catch(IncorrectRuleLengthException e)
+    {
+        cout << "Error: rule length does not match number of states and neighborhood.\n";
+    }	    
     return 0;
 }
 
 /***************************************************************************************/
 
-void parallel_SVM() {
+void usage() {
+    cout << "Usage: CAreservoir [options] <# of states> <rule file>\n";
+    cout << "Options:\n";
+    cout << "-d 		  -> save CA to ca.txt and draw in ca.ppm\n";
+    cout << "-p <int1> <int2> -> parallel: <int1> runs on up to <int2> cores\n"; 
+    exit(0);
+}
+
+/***************************************************************************************/
+
+void parallel_SVM(int num_tests, int cores, string rule_file) {
     int success = 0;
-    int num_tests = 2;
-    omp_set_nested(1);
+    //omp_set_nested(1);
     srand(time(NULL));
     // Don't exceed number of cores
-    //omp_set_num_threads(16);
+    omp_set_num_threads(cores);
     #pragma omp parallel
     {
         #pragma omp for nowait
@@ -65,7 +103,8 @@ void parallel_SVM() {
             //omp_set_num_threads(3);
 	    CA ca;
 	    real_2d_array training_data;
-	    ca.set_rule(RULE90);
+	    //ca.set_rule(RULE90);
+	    ca.load_rule(rule_file);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";
@@ -92,7 +131,7 @@ void parallel_5_bit() {
     #pragma omp parallel
     {
         #pragma omp for nowait
-        for (size_t i = 0; i < num_tests; ++i) 
+        for (int i = 0; i < num_tests; ++i) 
 	{
             //omp_set_num_threads(3);
 	    CA ca;
@@ -126,8 +165,6 @@ CA::CA() {
     _map.resize(R, vector<int>(INPUT_LENGTH));
     _cell.resize(I + 1, vector<int>(WIDTH));
     _rule.resize(RULELENGTH);
-    _out.resize(MAX_THREADS);
-    _in.resize(MAX_THREADS);
     _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
     // Initialize first row with 0s
     if (STATES < 3) {
@@ -151,6 +188,23 @@ CA::CA() {
     }
 }
 
+
+/***************************************************************************************/
+
+void CA::load_rule(string rule_file) {
+    ifstream in;
+    char x;
+
+    in.open(rule_file.c_str(), ifstream::in);
+    for (int i = 0; i < RULELENGTH; ++i) {
+	in >> x;
+	if (in.eof())
+	    throw IncorrectRuleLengthException();
+	_rule[i] = x - 48;
+    }
+    if (in >> x)
+	throw IncorrectRuleLengthException();
+}
 
 /***************************************************************************************/
 
@@ -298,35 +352,31 @@ void CA::call_SVM_functions(int model, int& incorrect, real_2d_array training_da
     int SVMtag;
     int tid = omp_get_thread_num();
     int system_result;
+    ofstream out;
+    ifstream in;
 
-    _out[tid].open((data_file + to_string(tid) +".dat").c_str(), ofstream::out);
-    _out[tid] << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
+    out.open((data_file + to_string(tid) +".dat").c_str(), ofstream::out);
+    out << SEQUENCE_LENGTH * TEST_SETS << " " << READOUT_LENGTH + 1 << endl;
     // Build input file for SVMTorch
     for (int i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
 	for (int j = 0; j < READOUT_LENGTH; ++j) {
-	    _out[tid] << training_data[i][j] << " ";
+	    out << training_data[i][j] << " ";
 	}
 	SVMtag = _targets[model][i] == 1 ? 1 : -1; 
-	_out[tid] << SVMtag << endl;
+	out << SVMtag << endl;
     }
     // Build and test model
-    _out[tid].close();
-    #pragma omp critical
-    {
-        system_result = system((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
-        puts((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
-    }
-    #pragma omp critical
-    {
-        system_result = system((test_results + to_string(tid) + ".dat SVM_model" + 
+    out.close();
+    system_result = system((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
+    puts((build_model + to_string(tid) + ".dat SVM_model" + to_string(tid)).c_str());
+    system_result = system((test_results + to_string(tid) + ".dat SVM_model" + 
 	    	to_string(tid) + " SVM" + to_string(tid) + ".dat").c_str());
-        puts((test_results + to_string(tid) + ".dat SVM_model" +
+    puts((test_results + to_string(tid) + ".dat SVM_model" +
 		to_string(tid) + " SVM" + to_string(tid) + ".dat").c_str());
-    }
-    _in[tid].open((output_file + to_string(tid) + ".dat").c_str(), ifstream::in);
+    in.open((output_file + to_string(tid) + ".dat").c_str(), ifstream::in);
     float result;
     for (int i = 0; i < SEQUENCE_LENGTH * TEST_SETS; ++i) {
-	_in[tid] >> result;
+	in >> result;
 	if ((result < 0 && _targets[model][i] == 1) || (result >= 0 && _targets[model][i] == 0)) { 
 	    #pragma omp critical
 	    {
@@ -334,29 +384,30 @@ void CA::call_SVM_functions(int model, int& incorrect, real_2d_array training_da
 	    }
 	}
     }
-    _in[tid].close();
+    in.close();
 }
 
 /***************************************************************************************/
 
+// Nested parallelism wasn't working. Could it cause tid #s to be reused?
 int CA::build_SVM_model(real_2d_array& training_data) {
     int incorrect = 0;
 
-    #pragma omp parallel sections
-    {
-	#pragma omp section
-	{   // model 0
+//    #pragma omp parallel sections
+//    {
+//	#pragma omp section
+//	{   // model 0
 	    call_SVM_functions(0, incorrect, training_data);
-	}
-       #pragma omp section
-	{  // model 1
+//	}
+ //      #pragma omp section
+//	{  // model 1
 	    call_SVM_functions(1, incorrect, training_data);
-	}
-	#pragma omp section
-	{ // model 2
+//	}
+//	#pragma omp section
+//	{ // model 2
 	    call_SVM_functions(2, incorrect, training_data);
-	}
-    }
+//	}
+ //   }
     cout << "\nIncorrect: " << incorrect << endl;
     if (incorrect == 0) 
 	return 0;
@@ -454,58 +505,6 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
     }
 
 
-
-
-/*
-    for (model_index = 0; model_index < 3; ++model_index){
-	data_index = 0;
-	for (test_set = 0; test_set < TEST_SETS; ++test_set) {
-	    if (model_index == 2) {
-		for (i = 0; i < distractor_end; ++i) {
-		    _targets[2][data_index] = 1;
-		    training_data[data_index][READOUT_LENGTH] = 1;
-		    ++data_index;
-		}
-	    }
-	    else {           // model_index == 0 or 1
-		for (i = 0; i < distractor_end; ++i) {
-		    _targets[model_index][data_index] = 0;
-		    training_data[data_index][READOUT_LENGTH] = 0;
-		    ++data_index;
-		}
-	    }
-	    // Recall period
-	    for (time_step = 0; i < SEQUENCE_LENGTH; ++i, ++time_step) {
-                if (model_index == 0) {
-		    training_data[data_index][READOUT_LENGTH] = 
-			test_set >> time_step & 1;
-		    _targets[0][data_index] = training_data[data_index][READOUT_LENGTH];
-		    ++data_index;
-		}
-		else if (model_index == 1) {
-		    training_data[data_index][READOUT_LENGTH] = 
-			1 - (test_set >> time_step & 1);
-		    _targets[1][data_index] = training_data[data_index][READOUT_LENGTH];
-		    ++data_index;
-		}
-		else {
-		    _targets[2][data_index] = 0;
-		    training_data[data_index][READOUT_LENGTH] = 0;
-		    ++data_index;
-		}
-	    }
-	}
-	cout << "Building linear regression model #" << model_index + 1 << endl;
-        lrbuild(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
-		output[model_index], rep);    // Try lrbuildz()
-*/
-        //lrbuildz(training_data, SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH, info,
-	//	output[model_index], rep);    // Try lrbuildz()
-        //cout << int(info) << endl;  // 1 for successful build
-        //for  (time_step = 0; time_step < SEQUENCE_LENGTH*TEST_SETS; ++time_step)  // Print out targets
-	//     cout << training_data[time_step][READOUT_LENGTH] << "  ";
-	//cout << "Training data #" << model_index + 1 << training_data.tostring(0).c_str() << endl;  
-    //}
     /*for (i = 0; i < 3; ++i) {     // Print out coefficients
 	real_1d_array coeffs;
 	lrunpack(output[i], coeffs, nvars);
