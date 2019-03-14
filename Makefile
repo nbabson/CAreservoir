@@ -4,4 +4,4 @@ CA:
 
 
 clean:
-	rm -f CAreservoir.o *.dat SVM_model* 
+	rm -f CAreservoir.o *.dat SVM_model* SVM_results*
