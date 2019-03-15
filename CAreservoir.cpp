@@ -15,19 +15,23 @@
 using namespace alglib;
 using namespace std;
 
-typedef struct {
+struct parameters {
     bool draw;
     bool parallel;
+    bool build_file;
     bool svm;
     int runs;
     int cores;
     string rule_file;
-} parameters;
+};
 
 void parallel_5_bit(int num_tests, int num_threads, string rule_file);
 void parallel_SVM(int num_tests, int cores, string rule_file);
 void parse_cmd_line(int argc, char** argv, parameters* params);
 void usage();
+void build_3_state_CA_file();
+void dec_to_base_3(vector<int>& result, int num);
+bool find_static_CAs(real_2d_array& training_data);
 
 int main(int argc, char **argv) {
     parameters params;
@@ -35,7 +39,10 @@ int main(int argc, char **argv) {
     parse_cmd_line(argc, argv, &params);    
     try {
 	srand(time(NULL));
-	if (params.parallel) {
+	if (params.build_file) {
+	    build_3_state_CA_file();
+	}
+	else if (params.parallel) {
 	    if (params.svm)
 	        parallel_SVM(params.runs, params.cores, params.rule_file);
 	    else
@@ -77,6 +84,7 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
 
     params -> draw = false;
     params -> parallel = false;
+    params -> build_file = false;
     params -> svm = true;
 
     if (argc < 3) 
@@ -108,6 +116,10 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
             DIFFUSE_LENGTH = atoi(argv[++arg_index]);
 	    error = false;
 	}
+	else if (!strcmp(argv[arg_index], "-bf")) {
+	    params -> build_file = true;
+	    error = false;
+	}
 	++arg_index;
 	if (error)
 	    usage();
@@ -131,6 +143,7 @@ void usage() {
     cout << "-r <int>         -> change R, # of reservoirs\n"; 
     cout << "-i <int>         -> change I, # of CA iterations\n"; 
     cout << "-dl <int>        -> change DIFFUSION_LENGTH, size of reservoirs\n";
+    cout << "-bf              -> build 3 state CA rule file\n";
     exit(0);
 }
 
@@ -218,11 +231,12 @@ CA::CA() {
     _cell.resize(I + 1, vector<int>(WIDTH));
     _rule.resize(RULELENGTH);
     _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
-    // Initialize first row with 0s
-    if (STATES < 3) {
+    // Initialize first row with 0s for 2 STATE CA
+    if (STATES == 2) {
 	for (i = 0; i < WIDTH; ++i)
 	    _cell[0][i] = 0;
     }
+    // Initialize with largest state #
     else {
 	for (i = 0; i < WIDTH; ++i)
 	    _cell[0][i] = STATES - 1;
@@ -293,7 +307,7 @@ void CA::check_CA(real_2d_array& training_data) {
     for (int i = 0; i < READOUT_LENGTH; ++i)
 	apply_rule(training_data, data_index++);
 
-    save_CA(training_data);
+    //save_CA(training_data);
     //draw_CA(training_data);
 }
 
@@ -598,7 +612,7 @@ int CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 		for (i = 0; i < READOUT_LENGTH; ++i)
 		    model_input[i] = training_data[training_data_index][i];
 		result = lrprocess(output[model_index], model_input);
-		// !!! This has to be adjusted for different #s of states !!!
+		// Does this have to be adjusted for different #s of states?
 		result_state = result < .5 ? 0 : 1;
                 if (result_state != _targets[model_index][training_data_index]) {
 		    ++incorrect_predictions;
@@ -626,7 +640,6 @@ void CA::save_CA(real_2d_array& training_data) {
     int height = SEQUENCE_LENGTH * TEST_SETS;
     int width = READOUT_LENGTH;
     FILE* f_out = fopen("ca.txt", "w");
-    //string syst = "./draw2 ca.txt ca2.ppm";;
     
     for (i = 0; i < height; ++i) {
 	for (j = 0; j < width; ++j)
@@ -634,14 +647,11 @@ void CA::save_CA(real_2d_array& training_data) {
     }
     fclose(f_out);
 
-    //system(syst.c_str());
-    //puts(syst.c_str());
     draw_CA(training_data);
 }
 
 /***************************************************************************************/
 
-//training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 void CA::train_5_bit(real_2d_array& training_data) {
     int time_step ,test_set;
     int data_index = 0;
@@ -682,6 +692,130 @@ void CA::train_5_bit(real_2d_array& training_data) {
 	}
     }
     //cout << "Data_index: " << data_index << endl;
+}
+
+/***************************************************************************************/
+
+void build_3_state_CA_file() {
+    int good_CA_count = 0;
+
+    try {
+	if (I < 3) throw BuildRuleFileRequiresIAtLeast3Exception();
+    }
+    catch(BuildRuleFileRequiresIAtLeast3Exception e)
+    {
+	cout << "Error: 'I' must be at least three for -bf option.\n"; 
+	exit(1);
+    }
+    vector<int> rule(27);
+    vector<int> input = {0,1,0,1};
+    int i, j, epoch, data_index = 0;
+    // 19683 = (3^3)^3 = number of 3 state neighborhood 3 rules
+    //for (int i = 0; i < 19683; ++i) {
+    for (i = 0; i < 1000; ++i) {
+	dec_to_base_3(rule, i);
+	CA ca;
+	real_2d_array training_data;
+	//training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
+	//We need extra size for save -- remove after testing
+	training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
+	ca.set_rule(rule);
+	ca.set_input(input);
+	for (j = 0; j < 27; ++j) 
+	    cout<< rule[j];
+	cout << endl;
+	ca.check_CA(training_data);
+	if (!find_static_CAs(training_data))
+	    ++good_CA_count;
+    }
+    cout << "Good CAs: " << good_CA_count << endl;
+}
+
+/***************************************************************************************/
+
+bool find_static_CAs(real_2d_array& training_data) {
+    bool flag;
+    int index1, index2;
+
+    // Check if last row matches either of 2 preceding
+    flag = true;
+    for (index1 = 0, index2 = WIDTH; index1 < WIDTH; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "last two match\n";
+	return true;
+    }
+    flag = true;
+    for (index1 = 0, index2 = 2*WIDTH; index1 < WIDTH; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "last matches 2nd to last\n";
+	return true;
+    }
+    // Check if last row is shifted one cell right or left from previous row
+    flag = true;
+    for (index1 = 0, index2 = WIDTH+1; index1 < WIDTH-1; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "shifted right\n";
+	return true;
+    }
+    flag = true;
+    for (index1 = 1, index2 = WIDTH; index1 < WIDTH-1; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "shifted left\n";
+	return true;
+    }
+    // Check if two rows above are shifted twice
+    flag = true;
+    for (index1 = 0, index2 = 2*WIDTH+1; index1 < WIDTH-2; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "shifted right in 2 levels\n";
+	return true;
+    }
+    flag = true;
+    for (index1 = 1, index2 = 2*WIDTH; index1 < WIDTH-2; ++index1, ++index2) {
+	if (training_data[READOUT_LENGTH-1][index1] != training_data[READOUT_LENGTH-1][index2]) {
+	    flag = false;
+	    break;
+	}
+    }
+    if (flag) {
+	cout << "shifted left in 2 levels\n";
+	return true;
+    }
+    return false;
+}
+
+/***************************************************************************************/
+
+void dec_to_base_3(vector<int>& result, int num) {
+	for (int i = 26; i >= 0; --i) {
+	    result[i] = num % 3;
+	    num /= 3;
+	}
 }
 
 /***************************************************************************************/

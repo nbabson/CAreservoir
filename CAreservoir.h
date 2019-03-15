@@ -2,10 +2,9 @@
 #ifndef CARESERVOIR_H
 #define CARESERVOIR_H
 
-
-int R 		        	= 4;  //8
-int I 	        		= 2;  //2
-int DIFFUSE_LENGTH      	= 20; //40
+int R 		        	= 8;  //8
+int I 	        		= 4;  //2
+int DIFFUSE_LENGTH      	= 40; //40
 const int INPUT_LENGTH 		= 4;  //4
 int STATES 	        	= 3; 
 const int NEIGHBORHOOD 		= 3;
@@ -16,7 +15,6 @@ const int DISTRACTOR_PERIOD	= 200;
 // For 5-bit memory task
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
-const int MAX_THREADS           = 32;
 
 const std::vector<int> RULE102 = {0,1,1,0,0,1,1,0};
 const std::vector<int> RULE90 = {0,1,0,1,1,0,1,0};
@@ -64,6 +62,6 @@ class CA {
 
 class NegativeModulusException{};
 class IncorrectRuleLengthException{};
-
+class BuildRuleFileRequiresIAtLeast3Exception{};
 
 #endif
