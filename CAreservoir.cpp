@@ -707,6 +707,7 @@ void random_rule(vector<int>& rule) {
 
 void build_3_state_CA_file(int runs) {
     int good_CA_count = 0;
+    int reject_CAs    = 0;
     ofstream out;
 
     out.open("three_state_rules.txt", ofstream::out | ofstream::app);
@@ -759,10 +760,16 @@ void build_3_state_CA_file(int runs) {
 		    }
 		}
 	    }
-	    else cout << "Reject static rule\n";
+	    else {
+            #pragma omp critical
+		{
+		    ++reject_CAs;
+		}
+	    }
 	}
     }
     cout << "Good CAs: " << good_CA_count << endl;
+    cout << "Rejected as static: "  << reject_CAs << "\n";
     out.close();
 }
 
