@@ -712,24 +712,31 @@ void build_3_state_CA_file() {
     int i, j, epoch, data_index = 0;
     // 19683 = (3^3)^3 = number of 3 state neighborhood 3 rules
     //for (int i = 0; i < 19683; ++i) {
-    #pragma omp for nowait
-    for (i = 0; i < 10000; ++i) {
-	dec_to_base_3(rule, i);
-	CA ca;
-	real_2d_array training_data;
-	//training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
-	//We need extra size for save -- remove after testing
-	training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
-	ca.set_rule(rule);
-	ca.set_input(input);
-	/*for (j = 0; j < 27; ++j) 
-	    cout<< rule[j];
-	cout << endl;*/
-	if (i % 1000 == 0)
-	    cout << i << endl;
-	ca.check_CA(training_data);
-	if (!find_static_CAs(training_data))
-	    ++good_CA_count;
+    #pragma omp parallel
+    {
+	#pragma omp for nowait
+	for (i = 0; i < 10000; ++i) {
+	    dec_to_base_3(rule, i);
+	    CA ca;
+	    real_2d_array training_data;
+	    //training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
+	    //We need extra size for save -- remove after testing
+	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
+	    ca.set_rule(rule);
+	    ca.set_input(input);
+	    /*for (j = 0; j < 27; ++j) 
+		cout<< rule[j];
+	    cout << endl;*/
+	    if (i % 1000 == 0)
+		cout << i << endl;
+	    ca.check_CA(training_data);
+	    if (!find_static_CAs(training_data)) {
+		#pragma omp critical
+		{
+		    ++good_CA_count;
+		}
+	    }
+	}
     }
     cout << "Good CAs: " << good_CA_count << endl;
 }
