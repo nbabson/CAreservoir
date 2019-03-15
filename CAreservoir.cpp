@@ -698,7 +698,9 @@ void CA::train_5_bit(real_2d_array& training_data) {
 
 void build_3_state_CA_file() {
     int good_CA_count = 0;
+    ofstream out;
 
+    out.open("three_state_rules.txt", ofstream::out);
     try {
 	if (I < 3) throw BuildRuleFileRequiresIAtLeast3Exception();
     }
@@ -715,7 +717,7 @@ void build_3_state_CA_file() {
     #pragma omp parallel
     {
 	#pragma omp for nowait
-	for (i = 0; i < 19683/2; ++i) {
+	for (i = 0; i < 19683; ++i) {
 	    dec_to_base_3(rule, i);
 	    CA ca;
 	    real_2d_array training_data;
@@ -734,6 +736,9 @@ void build_3_state_CA_file() {
 		#pragma omp critical
 		{
 		    ++good_CA_count;
+		    for (j = 0; j < 27; ++j)
+		        out << rule[j];
+		    out << "\n";
 		}
 	    }
 	}
