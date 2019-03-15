@@ -708,7 +708,7 @@ void build_3_state_CA_file() {
     int good_CA_count = 0;
     ofstream out;
 
-    out.open("three_state_rules.txt", ofstream::out);
+    out.open("three_state_rules.txt", ofstream::out | ofstream::app);
     try {
 	if (I < 3) throw BuildRuleFileRequiresIAtLeast3Exception();
     }
@@ -717,7 +717,6 @@ void build_3_state_CA_file() {
 	cout << "Error: 'I' must be at least three for -bf option.\n"; 
 	exit(1);
     }
-    vector<int> rule(27);
     vector<int> input = {0,1,0,1};
     int i, j, epoch, data_index = 0;
     // 19683 = (3^3)^3 = number of 3 state neighborhood 3 rules
@@ -728,6 +727,7 @@ void build_3_state_CA_file() {
 	#pragma omp for nowait
 	for (i = 0; i < 50; ++i) {
 	    CA ca;
+            vector<int> rule(27);
 	    int errors;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
