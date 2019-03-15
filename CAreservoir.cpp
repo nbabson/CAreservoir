@@ -29,7 +29,7 @@ void parallel_5_bit(int num_tests, int num_threads, string rule_file);
 void parallel_SVM(int num_tests, int cores, string rule_file);
 void parse_cmd_line(int argc, char** argv, parameters* params);
 void usage();
-void build_3_state_CA_file();
+void build_3_state_CA_file(int runs);
 void dec_to_base_3(vector<int>& result, int num);
 bool find_static_CAs(real_2d_array& training_data);
 void random_rule(vector<int>& rule);
@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
     try {
 	srand(time(NULL));
 	if (params.build_file) {
-	    build_3_state_CA_file();
+	    build_3_state_CA_file(params.runs);
 	}
 	else if (params.parallel) {
 	    if (params.svm)
@@ -119,6 +119,7 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
 	}
 	else if (!strcmp(argv[arg_index], "-bf")) {
 	    params -> build_file = true;
+	    params -> runs = atoi(argv[++arg_index]);
 	    error = false;
 	}
 	++arg_index;
@@ -144,7 +145,7 @@ void usage() {
     cout << "-r <int>         -> change R, # of reservoirs\n"; 
     cout << "-i <int>         -> change I, # of CA iterations\n"; 
     cout << "-dl <int>        -> change DIFFUSION_LENGTH, size of reservoirs\n";
-    cout << "-bf              -> build 3 state CA rule file\n";
+    cout << "-bf <int>        -> build 3 state CA rule file, # of runs\n";
     exit(0);
 }
 
@@ -704,7 +705,7 @@ void random_rule(vector<int>& rule) {
 
 /***************************************************************************************/
 
-void build_3_state_CA_file() {
+void build_3_state_CA_file(int runs) {
     int good_CA_count = 0;
     ofstream out;
 
@@ -725,7 +726,7 @@ void build_3_state_CA_file() {
     #pragma omp parallel
     {
 	#pragma omp for nowait
-	for (i = 0; i < 50; ++i) {
+	for (i = 0; i < runs; ++i) {
 	    CA ca;
             vector<int> rule(27);
 	    int errors;
@@ -758,6 +759,7 @@ void build_3_state_CA_file() {
 		    }
 		}
 	    }
+	    else cout << "Reject static rule\n";
 	}
     }
     cout << "Good CAs: " << good_CA_count << endl;
