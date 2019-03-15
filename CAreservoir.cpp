@@ -32,6 +32,7 @@ void usage();
 void build_3_state_CA_file();
 void dec_to_base_3(vector<int>& result, int num);
 bool find_static_CAs(real_2d_array& training_data);
+void random_rule(vector<int>& rule);
 
 int main(int argc, char **argv) {
     parameters params;
@@ -696,6 +697,13 @@ void CA::train_5_bit(real_2d_array& training_data) {
 
 /***************************************************************************************/
 
+void random_rule(vector<int>& rule) {
+    for (int i = 0; i < 27; ++i) 
+	rule[i] = rand() % 3;
+}
+
+/***************************************************************************************/
+
 void build_3_state_CA_file() {
     int good_CA_count = 0;
     ofstream out;
@@ -713,37 +721,47 @@ void build_3_state_CA_file() {
     vector<int> input = {0,1,0,1};
     int i, j, epoch, data_index = 0;
     // 19683 = (3^3)^3 = number of 3 state neighborhood 3 rules
+    // !! This is wrong there are actually 3^(3^3) rules -> 7.6 * 10^12 !!
     //for (int i = 0; i < 19683; ++i) {
     #pragma omp parallel
     {
 	#pragma omp for nowait
-	for (i = 0; i < 19683; ++i) {
-	    dec_to_base_3(rule, i);
+	for (i = 0; i < 50; ++i) {
 	    CA ca;
+	    int errors;
 	    real_2d_array training_data;
+	    vector<linearmodel> output(3);
 	    //training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
 	    //We need extra size for save -- remove after testing
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
+	    random_rule(rule);
 	    ca.set_rule(rule);
 	    ca.set_input(input);
 	    /*for (j = 0; j < 27; ++j) 
 		cout<< rule[j];
 	    cout << endl;*/
-	    if (i % 1000 == 0)
-		cout << i << endl;
+	    //if (i % 1000 == 0)
+            //		cout << i << endl;
 	    ca.check_CA(training_data);
 	    if (!find_static_CAs(training_data)) {
+                //ca.save_CA(training_data);
+		ca.train_5_bit(training_data);
+		ca.build_5_bit_model(training_data, output);
+		errors = ca.test_5_bit(training_data, output);
+		if (errors < 100) {
 		#pragma omp critical
-		{
-		    ++good_CA_count;
-		    for (j = 0; j < 27; ++j)
-		        out << rule[j];
-		    out << "\n";
+		    {
+			++good_CA_count;
+			for (j = 0; j < 27; ++j)
+			    out << rule[j];
+			out << " " << errors << "\n";
+		    }
 		}
 	    }
 	}
     }
     cout << "Good CAs: " << good_CA_count << endl;
+    out.close();
 }
 
 /***************************************************************************************/
