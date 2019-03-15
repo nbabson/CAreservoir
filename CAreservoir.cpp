@@ -715,7 +715,7 @@ void build_3_state_CA_file() {
     #pragma omp parallel
     {
 	#pragma omp for nowait
-	for (i = 0; i < 10000; ++i) {
+	for (i = 0; i < 19683; ++i) {
 	    dec_to_base_3(rule, i);
 	    CA ca;
 	    real_2d_array training_data;
