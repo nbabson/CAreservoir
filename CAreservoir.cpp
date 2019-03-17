@@ -1,3 +1,7 @@
+// Neil Babson
+// March 2019
+// Celluar Automaton Reservoir
+
 #include "stdafx.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -190,6 +194,7 @@ void parallel_SVM(int num_tests, int cores, string rule_file) {
 }
 /***************************************************************************************/
 
+// Parallel linear regression tests
 void parallel_5_bit(int num_tests, int num_threads, string rule_file) { 
     int success = 0;
     omp_set_nested(1);
@@ -285,9 +290,9 @@ void CA::set_input(vector<int> input) {
 	for (j = 0; j < INPUT_LENGTH; ++j) {
 	    // Overwrite initial row with mapped inputs
             _cell[0][i * DIFFUSE_LENGTH + _map[i][j]] = input[j];
-	    // Add input state to initial row
+	    // Add input state + 1 to initial row
             //_cell[0][i * DIFFUSE_LENGTH + _map[i][j]] = 
-		//(_cell[0][i * DIFFUSE_LENGTH + _map[i][j]] + input[j]) % STATES;
+		//(_cell[0][i * DIFFUSE_LENGTH + _map[i][j]] + input[j] + 1) % STATES;
 	}
     }
 }
@@ -372,7 +377,6 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
     _iter = 0;
     //cout << "Applying rule\n";
     for (; _iter < I; ++_iter) {
-	// Could be optimized to only call mod() at ends of row
 	for (i = 0; i < WIDTH; ++i) {
 	    for (j = start, rule_index = 0; j <= finish; ++j, ++rule_index)
 		rule_window[rule_index] = _cell[_iter][mod(i + j, WIDTH)];
@@ -614,7 +618,6 @@ int CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 		for (i = 0; i < READOUT_LENGTH; ++i)
 		    model_input[i] = training_data[training_data_index][i];
 		result = lrprocess(output[model_index], model_input);
-		// Does this have to be adjusted for different #s of states?
 		result_state = result < .5 ? 0 : 1;
                 if (result_state != _targets[model_index][training_data_index]) {
 		    ++incorrect_predictions;
@@ -721,9 +724,6 @@ void build_3_state_CA_file(int runs) {
     }
     vector<int> input = {0,1,0,1};
     int i, j, epoch, data_index = 0;
-    // 19683 = (3^3)^3 = number of 3 state neighborhood 3 rules
-    // !! This is wrong there are actually 3^(3^3) rules -> 7.6 * 10^12 !!
-    //for (int i = 0; i < 19683; ++i) {
     #pragma omp parallel
     {
 	#pragma omp for nowait
@@ -733,9 +733,9 @@ void build_3_state_CA_file(int runs) {
 	    int errors;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    //training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
+	    training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
 	    //We need extra size for save -- remove after testing
-	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
+	    //training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
 	    random_rule(rule);
 	    ca.set_rule(rule);
 	    ca.set_input(input);

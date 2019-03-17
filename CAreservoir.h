@@ -1,18 +1,21 @@
+// Neil Babson
+// March 2019
+// Celluar Automaton Reservoir
 
 #ifndef CARESERVOIR_H
 #define CARESERVOIR_H
 
-int R 		        	= 8;  //8
-int I 	        		= 4;  //2
-int DIFFUSE_LENGTH      	= 40; //40
+int R 		        	= 8;  // # of reservoirs
+int I 	        		= 4;  // # of CA iterations
+int DIFFUSE_LENGTH      	= 40; // Size of reservoir
 const int INPUT_LENGTH 		= 4;  //4
 int STATES 	        	= 3; 
 const int NEIGHBORHOOD 		= 3;
 int RULELENGTH 	        	= pow(STATES, NEIGHBORHOOD);
 int WIDTH			= DIFFUSE_LENGTH * R;
 int READOUT_LENGTH	        = R * DIFFUSE_LENGTH * I;
-const int DISTRACTOR_PERIOD	= 200;
 // For 5-bit memory task
+const int DISTRACTOR_PERIOD	= 200;
 const int SEQUENCE_LENGTH	= DISTRACTOR_PERIOD + 10;
 const int TEST_SETS		= 32;
 
@@ -28,7 +31,6 @@ const std::vector<int> RULE30 = {0,0,0,1,1,1,1,0};
 const std::vector<int> RULE180 = {1,0,1,1,0,1,0,0};
 
 const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,0,0,2,2};
-//const std::vector<int> RULE3_3 = {2,2,2,2,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,2,2,2,2};
 
 class CA {
     public:
@@ -54,7 +56,7 @@ class CA {
         void call_SVM_functions(int model, int& incorrect, alglib::real_2d_array training_data);
 
 	std::vector<std::vector<int>> 	_map;  // [R][INPUT_LENGTH]
-	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH];  // [Row][Column]
+	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH]
 	std::vector<int> 		_rule;
 	int 				_iter;
 	std::vector<std::vector<int>> 	_targets;
