@@ -733,9 +733,9 @@ void build_3_state_CA_file(int runs) {
 	    int errors;
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
+	    //training_data.setlength(READOUT_LENGTH, READOUT_LENGTH);
 	    //We need extra size for save -- remove after testing
-	    //training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
+	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH);
 	    random_rule(rule);
 	    ca.set_rule(rule);
 	    ca.set_input(input);
