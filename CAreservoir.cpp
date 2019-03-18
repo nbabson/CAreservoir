@@ -24,16 +24,17 @@ struct parameters {
     bool parallel;
     bool build_file;
     bool svm;
+    bool uniform;
     int runs;
     int cores;
     string rule_file;
 };
 
-void parallel_5_bit(int num_tests, int num_threads, string rule_file);
-void parallel_SVM(int num_tests, int cores, string rule_file);
+void parallel_5_bit(int num_tests, int num_threads, string rule_file, bool uniform);
+void parallel_SVM(int num_tests, int cores, string rule_file, bool uniform);
 void parse_cmd_line(int argc, char** argv, parameters* params);
 void usage();
-void build_3_state_CA_file(int runs);
+void build_3_state_CA_file(int runs, bool uniform);
 void dec_to_base_3(vector<int>& result, int num);
 bool find_static_CAs(real_2d_array& training_data);
 void random_rule(vector<int>& rule);
@@ -45,28 +46,31 @@ int main(int argc, char **argv) {
     try {
 	srand(time(NULL));
 	if (params.build_file) {
-	    build_3_state_CA_file(params.runs);
+	    build_3_state_CA_file(params.runs, params.uniform);
 	}
 	else if (params.parallel) {
 	    if (params.svm)
-	        parallel_SVM(params.runs, params.cores, params.rule_file);
+	        parallel_SVM(params.runs, params.cores, params.rule_file, params.uniform);
 	    else
-		parallel_5_bit(params.runs, params.cores, params.rule_file);
+		parallel_5_bit(params.runs, params.cores, params.rule_file, params.uniform);
 	}
 	else {
-	    CA ca;
-	    ca.load_rule(params.rule_file);
+	    CA ca(params.uniform);
+	    if (params.uniform)
+		ca.load_rule(params.rule_file);
+	    else
+	        ca.load_two_rules(params.rule_file);
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
 	    // Add one for target
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 	    cout << "Building training data\n";
-	    ca.train_5_bit(training_data);
+	    ca.train_5_bit(training_data, params.uniform);
 	    ca.set_5_bit_targets();
 	    if (params.svm)
-	        ca.build_SVM_model(training_data);
+		ca.build_SVM_model(training_data);
 	    else {
-	        ca.build_5_bit_model(training_data, output);
+		ca.build_5_bit_model(training_data, output);
 		ca.test_5_bit(training_data, output);
 	    }
 	    if (params.draw)
@@ -91,6 +95,7 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
     params -> parallel = false;
     params -> build_file = false;
     params -> svm = true;
+    params -> uniform = true;
 
     if (argc < 3) 
 	usage();
@@ -126,6 +131,10 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
 	    params -> runs = atoi(argv[++arg_index]);
 	    error = false;
 	}
+	else if (!strcmp(argv[arg_index], "-nu")) {
+	    params -> uniform = false;
+	    error = false;
+	}
 	++arg_index;
 	if (error)
 	    usage();
@@ -150,12 +159,15 @@ void usage() {
     cout << "-i <int>         -> change I, # of CA iterations\n"; 
     cout << "-dl <int>        -> change DIFFUSION_LENGTH, size of reservoirs\n";
     cout << "-bf <int>        -> build 3 state CA rule file, # of runs\n";
+    cout << "-nu              -> non-uniform reservoir rules, rule file should have\n";
+    cout << "                    2 rules on successive lines where first line ends with ':'\n";
     exit(0);
 }
 
 /***************************************************************************************/
 
-void parallel_SVM(int num_tests, int cores, string rule_file) {
+// Build and test 5 bit task support vector machine CAs in parallel
+void parallel_SVM(int num_tests, int cores, string rule_file, bool uniform) {
     int success = 0;
     //omp_set_nested(1);
     srand(time(NULL));
@@ -167,15 +179,18 @@ void parallel_SVM(int num_tests, int cores, string rule_file) {
         for (int i = 0; i < num_tests; ++i) 
 	{
             //omp_set_num_threads(3);
-	    CA ca;
+	    CA ca(uniform);
 	    real_2d_array training_data;
 	    //ca.set_rule(RULE90);
 	    try {
-	        ca.load_rule(rule_file);
+		if (uniform)
+		    ca.load_rule(rule_file);
+		else
+	            ca.load_two_rules(rule_file);
 		training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 		cout << "Building training data\n";
-		ca.train_5_bit(training_data);
+		ca.train_5_bit(training_data, uniform);
 		ca.set_5_bit_targets();
 		if (ca.build_SVM_model(training_data) == 0) {
 		    #pragma omp critical
@@ -195,7 +210,7 @@ void parallel_SVM(int num_tests, int cores, string rule_file) {
 /***************************************************************************************/
 
 // Parallel linear regression tests
-void parallel_5_bit(int num_tests, int num_threads, string rule_file) { 
+void parallel_5_bit(int num_tests, int num_threads, string rule_file, bool uniform) { 
     int success = 0;
     omp_set_nested(1);
     // Don't exceed number of cores
@@ -206,14 +221,17 @@ void parallel_5_bit(int num_tests, int num_threads, string rule_file) {
         for (int i = 0; i < num_tests; ++i) 
 	{
             //omp_set_num_threads(3);
-	    CA ca;
+	    CA ca(uniform);
 	    real_2d_array training_data;
 	    vector<linearmodel> output(3);
-	    ca.load_rule(rule_file);
+	    if (uniform)
+		ca.load_rule(rule_file);
+	    else
+	        ca.load_two_rules(rule_file);
 	    training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
 
 	    cout << "Building training data\n";
-	    ca.train_5_bit(training_data);
+	    ca.train_5_bit(training_data, uniform);
 	    cout << "Building regression models\n";
 	    ca.build_5_bit_model(training_data, output);
 	    if (ca.test_5_bit(training_data, output) == 0) {
@@ -229,6 +247,7 @@ void parallel_5_bit(int num_tests, int num_threads, string rule_file) {
 
 /***************************************************************************************/
 
+// CA constructor sets random input mapping for each of R subreservoirs
 CA::CA() {
     bool unique;
     int i, j, k;
@@ -264,6 +283,45 @@ CA::CA() {
 
 /***************************************************************************************/
 
+// CA constructor sets random input mapping for each of R subreservoirs
+CA::CA(bool uniform) {
+    bool unique;
+    int i, j, k;
+
+    _iter = 0;
+    _map.resize(R, vector<int>(INPUT_LENGTH));
+    _cell.resize(I + 1, vector<int>(WIDTH));
+    _rule.resize(RULELENGTH);
+    if (!uniform)
+        _rule2.resize(RULELENGTH);
+    _targets.resize(3, vector<int>(SEQUENCE_LENGTH * TEST_SETS));
+    // Initialize first row with 0s for 2 STATE CA
+    if (STATES == 2) {
+	for (i = 0; i < WIDTH; ++i)
+	    _cell[0][i] = 0;
+    }
+    // Initialize with largest state #
+    else {
+	for (i = 0; i < WIDTH; ++i)
+	    _cell[0][i] = STATES - 1;
+    }
+    for (i = 0; i < R; ++i) {
+	for (j = 0; j < INPUT_LENGTH; ++j) {
+	    do {
+		unique = true;
+                _map[i][j] = rand() % DIFFUSE_LENGTH;
+                for (k = 0; k < j; ++k)
+		    if (_map[i][j] == _map[i][k])
+		      	unique = false;
+	    } while (!unique);
+	}
+    }
+}
+
+
+/***************************************************************************************/
+
+// Load CA rule from rule_file
 void CA::load_rule(string rule_file) {
     ifstream in;
     char x;
@@ -276,12 +334,43 @@ void CA::load_rule(string rule_file) {
 	_rule[i] = x - 48;
     }
     //in >> x;
-    if (in.eof())
-	throw IncorrectRuleLengthException();
+    //if (in.eof())
+    //	throw IncorrectRuleLengthException();
+    in.close();
+}
+
+
+/***************************************************************************************/
+
+// Load two CA rules from rule_file for non_uniform reservoir
+// from successive lines of rule_file where first line ends with ':' 
+void CA::load_two_rules(string rule_file) {
+    ifstream in;
+    char x;
+
+    in.open(rule_file.c_str(), ifstream::in);
+    for (int i = 0; i < RULELENGTH; ++i) {
+	in >> x;
+	if (in.eof())
+	    throw IncorrectRuleLengthException();
+	_rule[i] = x - 48;
+    }
+    cout << "1\n";
+    while (x != ':')
+        in >> x;
+    cout << "2\n";
+    for (int i = 0; i < RULELENGTH; ++i) {
+	in >> x;
+	if (in.eof())
+	    throw IncorrectRuleLengthException();
+	_rule2[i] = x - 48;
+    }
+    in.close();
 }
 
 /***************************************************************************************/
 
+// Apply inputs to _iter = 0 row of CA
 void CA::set_input(vector<int> input) {
     int i, j;
 
@@ -308,6 +397,7 @@ void CA::set_rule(vector<int> rule) {
 	
 /***************************************************************************************/
 
+// Build CA without applying inputs
 void CA::check_CA(real_2d_array& training_data) {
     int data_index = 0;
 
@@ -321,6 +411,7 @@ void CA::check_CA(real_2d_array& training_data) {
 
 /***************************************************************************************/
 
+// Generate ca.ppm file of first WIDTH rows of CA in ca.txt
 void CA::draw_CA(alglib::real_2d_array& training_data) {
     int i, j, k, l;
     char ans;
@@ -367,6 +458,8 @@ void CA::draw_CA(alglib::real_2d_array& training_data) {
 
 /***************************************************************************************/
 
+// Apply CA rule for I iterations.
+// Copy last row to initial position ready to receive input data
 void CA::apply_rule(real_2d_array& training_data, int data_index) {
     int i, j;
     int rule_index, rule_window[NEIGHBORHOOD];
@@ -393,6 +486,40 @@ void CA::apply_rule(real_2d_array& training_data, int data_index) {
 
 /***************************************************************************************/
 
+// Apply two CA rule for I iterations for non-uniform reservoir..
+// Copy last row to initial position ready to receive input data
+void CA::apply_two_rules(real_2d_array& training_data, int data_index) {
+    int i, j;
+    int rule_switch = WIDTH / 2;
+    int rule_index, rule_window[NEIGHBORHOOD];
+    int start = -(NEIGHBORHOOD / 2);
+    int finish = NEIGHBORHOOD / 2;
+    int n = RULELENGTH - 1;
+
+    _iter = 0;
+    //cout << "Applying rule\n";
+    for (; _iter < I; ++_iter) {
+	for (i = 0; i < WIDTH; ++i) {
+	    for (j = start, rule_index = 0; j <= finish; ++j, ++rule_index)
+		rule_window[rule_index] = _cell[_iter][mod(i + j, WIDTH)];
+	    if (i < rule_switch) // rule 1
+		_cell[_iter + 1][i] = training_data[data_index][i + WIDTH * _iter]
+		    = _rule[n -  base_N_to_dec(rule_window, STATES, NEIGHBORHOOD)];
+	    else // rule 2
+		_cell[_iter + 1][i] = training_data[data_index][i + WIDTH * _iter]
+		    = _rule2[n -  base_N_to_dec(rule_window, STATES, NEIGHBORHOOD)];
+	}
+    }
+    // copy last row to initial position
+    for (i = 0; i < WIDTH; ++i)
+	_cell[0][i] = _cell[_iter][i];
+    //cout << "Data_index: " << data_index << endl;
+}
+
+
+/***************************************************************************************/
+
+// Generate targets for 5 bit memory task
 void CA::set_5_bit_targets() {
     int data_index, i, test_set, time_step;
     int distractor_end = SEQUENCE_LENGTH - 5;
@@ -417,6 +544,7 @@ void CA::set_5_bit_targets() {
 
 /***************************************************************************************/
    
+// Train and test reservoir using SVMTorch support vector machines
 void CA::call_SVM_functions(int model, int& incorrect, real_2d_array training_data) {
     string build_model = "./SVMTorch  SVM"; 
     string test_results = "./SVMTest -oa SVM_results"; 
@@ -490,6 +618,7 @@ int CA::build_SVM_model(real_2d_array& training_data) {
 
 /***************************************************************************************/
 
+// Create AlgLib linear regression models for 5 bit task
 void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& output) {
     int time_step1, test_set1, data_index1, data_index2, data_index3;
     int time_step2, test_set2, test_set3;
@@ -600,6 +729,7 @@ void CA::build_5_bit_model(real_2d_array& training_data, vector<linearmodel>& ou
 
 /***************************************************************************************/
  
+// Test CA reservoir for 5 bit task using AlgLib linear regression models
 int CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
     real_1d_array model_input;
     int incorrect_predictions = 0;
@@ -640,6 +770,7 @@ int CA::test_5_bit(real_2d_array& training_data, vector<linearmodel>& output) {
 
 /***************************************************************************************/
 
+// Save and draw CA reservoir
 void CA::save_CA(real_2d_array& training_data) {
     int i, j;
     int height = SEQUENCE_LENGTH * TEST_SETS;
@@ -657,8 +788,9 @@ void CA::save_CA(real_2d_array& training_data) {
 
 /***************************************************************************************/
 
-void CA::train_5_bit(real_2d_array& training_data) {
-    int time_step ,test_set;
+// Build CA with 5 bit task input
+void CA::train_5_bit(real_2d_array& training_data, bool uniform) {
+    int time_step ,test_set; 
     int data_index = 0;
     int distractor_end = SEQUENCE_LENGTH - 6;
     vector<int> input(4);
@@ -672,7 +804,10 @@ void CA::train_5_bit(real_2d_array& training_data) {
 	    input[1] = !input[0];
 	    input[2] = input[3] = 0;
 	    set_input(input);
-            apply_rule(training_data, data_index++); 
+	    if (uniform)
+                apply_rule(training_data, data_index++); 
+	    else
+                apply_two_rules(training_data, data_index++); 
 	    //cout << "\t" << input[0] << " " << input[1] << " " << input[2] << " " << input[3] << endl;
 	}
 	// Distractor period
@@ -680,20 +815,29 @@ void CA::train_5_bit(real_2d_array& training_data) {
 	    input[0] = input[1] = input[3] = 0;
 	    input[2] = 1;
 	    set_input(input);
-            apply_rule(training_data, data_index++); 
+	    if (uniform)
+                apply_rule(training_data, data_index++); 
+	    else
+                apply_two_rules(training_data, data_index++); 
 	}
 	// Distractor signal
 	input[0] = input[1] = input[2] = 0;
 	input[3] = 1;
 	set_input(input);
-	apply_rule(training_data, data_index++); 
+	if (uniform)
+	    apply_rule(training_data, data_index++); 
+	else
+	    apply_two_rules(training_data, data_index++); 
 	++time_step;
         // Recall period
 	for (; time_step < SEQUENCE_LENGTH; ++time_step) {
 	    input[0] = input[1] = input[3] = 0;
 	    input[2] = 1;
 	    set_input(input);
-            apply_rule(training_data, data_index++); 
+	    if (uniform)
+                apply_rule(training_data, data_index++); 
+	    else
+                apply_two_rules(training_data, data_index++); 
 	}
     }
     //cout << "Data_index: " << data_index << endl;
@@ -701,6 +845,7 @@ void CA::train_5_bit(real_2d_array& training_data) {
 
 /***************************************************************************************/
 
+// Generate a random 3 state rule
 void random_rule(vector<int>& rule) {
     for (int i = 0; i < 27; ++i) 
 	rule[i] = rand() % 3;
@@ -708,7 +853,11 @@ void random_rule(vector<int>& rule) {
 
 /***************************************************************************************/
 
-void build_3_state_CA_file(int runs) {
+// Stochastic search for promising rules.
+// Eliminate Class 1 and 2 rules and append rules
+// with low error on 5 bit task
+// to three_state_rules.txt
+void build_3_state_CA_file(int runs, bool uniform) {
     int good_CA_count = 0;
     int reject_CAs    = 0;
     ofstream out;
@@ -747,7 +896,7 @@ void build_3_state_CA_file(int runs) {
 	    ca.check_CA(training_data);
 	    if (!find_static_CAs(training_data)) {
                 //ca.save_CA(training_data);
-		ca.train_5_bit(training_data);
+		ca.train_5_bit(training_data, uniform);
 		ca.build_5_bit_model(training_data, output);
 		errors = ca.test_5_bit(training_data, output);
 		if (errors < 100) {
@@ -775,6 +924,7 @@ void build_3_state_CA_file(int runs) {
 
 /***************************************************************************************/
 
+// Identify Class 1 and Class 2 convergent rules
 bool find_static_CAs(real_2d_array& training_data) {
     bool flag;
     int index1, index2;

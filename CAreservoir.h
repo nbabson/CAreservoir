@@ -35,13 +35,16 @@ const std::vector<int> RULE3_3 = {1,1,1,1,1,1,2,2,2,2,0,0,2,2,2,1,1,2,0,2,1,1,0,
 class CA {
     public:
 	CA();
+	CA(bool uniform);
 	void set_input(std::vector<int> input);
 	void set_rule(std::vector<int> rule);
 	void load_rule(std::string rule_file);
+	void load_two_rules(std::string rule_file);
 	void apply_rule(alglib::real_2d_array& training_data, int data_index);
+	void apply_two_rules(alglib::real_2d_array& training_data, int data_index);
         void build_5_bit_model(alglib::real_2d_array& training_data,
 		std::vector<alglib::linearmodel>& output);
-	void train_5_bit(alglib::real_2d_array& training_data);
+	void train_5_bit(alglib::real_2d_array& training_data, bool uniform);
 	int test_5_bit(alglib::real_2d_array& training_data, 
 		std::vector<alglib::linearmodel>& output);
 	void check_CA(alglib::real_2d_array& training_data);
@@ -58,6 +61,7 @@ class CA {
 	std::vector<std::vector<int>> 	_map;  // [R][INPUT_LENGTH]
 	std::vector<std::vector<int>> 	_cell; // [I + 1][WIDTH]
 	std::vector<int> 		_rule;
+	std::vector<int> 		_rule2;
 	int 				_iter;
 	std::vector<std::vector<int>> 	_targets;
 };
