@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     exit(0);
     */
     //save_RA_format("t1.txt");
-    //save_RA_format("rand_3_state.txt");
+    save_RA_format("rand_3_state.txt");
     //exit(0);
 
     try {
@@ -418,7 +418,7 @@ void save_RA_format(string rulefile) {
 
    ofstream out;
    //string outfile = "good_3_3_rule.txt";
-   string outfile = "bad1.txt";
+   string outfile = "bad2.txt";
 
    out.open(outfile, ofstream::out);
    for (row = 0; row < RULELENGTH; ++row) {
