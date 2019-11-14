@@ -87,7 +87,7 @@ int main(int argc, char **argv) {
     exit(0);
     */
     //save_RA_format("t1.txt");
-    save_RA_format("rand_3_state.txt");
+    //save_RA_format("rand_3_state.txt");
     //exit(0);
 
     try {
@@ -445,7 +445,7 @@ void eoc() {
    int num_tests = 100;
    int success[10] = {0};
 
-   out.open("lambda_rules.txt", ofstream::out | ofstream::app);
+   out.open("lambda_3_state_rules.txt", ofstream::out | ofstream::app);
 
    #pragma omp parallel
    {
@@ -488,7 +488,7 @@ void eoc() {
    }
    out.close();
    cout << "Success: \n";
-   for (int i = 1; i < 10; ++i) 
+   for (int i = 1; i < 11; ++i) 
       cout << "Lambda " << (float)i/10 << ":      " << success[i] << endl;
 }
 
