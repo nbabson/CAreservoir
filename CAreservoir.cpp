@@ -17,6 +17,7 @@
 #include <fstream>
 #include <thread>
 #include <chrono>
+#include <algorithm>
 
 
 using namespace alglib;
@@ -439,7 +440,56 @@ void save_RA_format(string rulefile) {
 /***************************************************************************************/
 
 void eoc() {
-   cout << "In EOC\n";
+   //cout << "In EOC\n";
+   ofstream out;
+   int num_tests = 100;
+   int success[10] = {0};
+
+   out.open("lambda_rules.txt", ofstream::out | ofstream::app);
+
+   #pragma omp parallel
+   {
+      omp_set_num_threads(40);
+      #pragma omp for collapse(2) nowait 
+      for (int lamb = 1; lamb < 11; ++lamb)
+      {
+         for (int j  = 0; j < num_tests; ++j) {
+            float lambda = ((float)lamb) / 10;
+            //cout << "--->>> " << lambda << " <<<---\n";
+            int quiescent = RULELENGTH - (int)round(lambda * RULELENGTH);
+            int k, correct; 
+            CA ca(true, false);
+            real_2d_array training_data;
+            training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+
+            for (k = 0; k < quiescent; ++k)
+               ca._rule[k] = 0;
+            for (; k < RULELENGTH; ++k)
+               ca._rule[k] = 1 + (rand() % (STATES - 1));
+            random_shuffle(ca._rule.begin(), ca._rule.end());
+            //for (k = 0; k < RULELENGTH; ++k)
+            //   cout << ca._rule[k];
+            //cout << endl;
+            ca.train_5_bit(training_data, true);
+            ca.set_5_bit_targets();
+            correct = ca.build_scikit_model(training_data);
+            if (correct < 6) {
+               #pragma omp critical
+               {
+                  ++success[lamb];
+                  for (int k = 0; k < RULELENGTH; ++k) 
+                     out << ca._rule[k];
+                  out << "   correct: " << correct << "    lambda: " <<
+                              lambda << endl;  
+               }
+            }
+         }
+      }
+   }
+   out.close();
+   cout << "Success: \n";
+   for (int i = 1; i < 10; ++i) 
+      cout << "Lambda " << (float)i/10 << ":      " << success[i] << endl;
 }
 
 /***************************************************************************************/
@@ -607,6 +657,7 @@ void temp_dens_make_dens_rules() {
         
     }
     cout << "Good CAs: " << good_CA_count << endl;    
+    out.close();
 }
 
 /***************************************************************************************/
