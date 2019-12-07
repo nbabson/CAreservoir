@@ -42,6 +42,7 @@ struct parameters {
     bool temporal_density;
     bool evolve_4_state;
     bool lambda;
+    bool lambda_1;
     string rule_file;
 };
 
@@ -69,6 +70,8 @@ void temp_dens_make_dens_rules();
 void dec_to_base_N(int num, int base, vector<int>& ans); 
 void eoc();
 void save_RA_format(string rulefile);
+void count_lambda();
+void make_lambda_1_rules();
 
 int main(int argc, char **argv) {
     parameters params;
@@ -76,6 +79,7 @@ int main(int argc, char **argv) {
     parse_cmd_line(argc, argv, &params);    
     srand(time(NULL));
     
+    //count_lambda();
     /*
     vector<int> r;
     r.resize(RULELENGTH);
@@ -91,7 +95,10 @@ int main(int argc, char **argv) {
     //exit(0);
 
     try {
-        if (params.only_draw) {
+        if (params.lambda_1)
+           make_lambda_1_rules();
+
+        else if (params.only_draw) {
             if (params.temporal_density)
                 only_draw(params.uniform, params.rule_file, TEMP_DENS_TRAINING_SIZE);
             else
@@ -200,6 +207,7 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
     bool error;
 
     params -> lambda = false;
+    params -> lambda_1 = false;
     params -> draw = false;
     params -> parallel = false;
     params -> build_file = false;
@@ -224,6 +232,7 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
 	}
         else if (!strcmp(argv[arg_index], "-ld")) {
             LONG_DRAW = true;
+            params -> draw = true;
             error = false;
         }
         else if (!strcmp(argv[arg_index], "-p")) {
@@ -345,6 +354,10 @@ void parse_cmd_line(int argc, char** argv, parameters* params) {
            params -> lambda = true;
            error = false;
         }
+        else if (!strcmp(argv[arg_index], "-l1")) {
+           params -> lambda_1 = true;
+           error = false;
+        }
         else if (!strcmp(argv[arg_index], "-eoc")) {
            params -> eoc = true;
            error = false;
@@ -409,6 +422,43 @@ void usage() {
 
 /***************************************************************************************/
 
+void make_lambda_1_rules() {
+   ofstream out;
+   int correct;
+   out.open("lambda_1_four_state.txt", ofstream::out | ofstream::app);
+   //out.open("lambda_1_five_state.txt", ofstream::out | ofstream::app);
+   #pragma omp parallel
+   {
+      omp_set_num_threads(40);
+      #pragma omp for nowait 
+      for (int j = 0; j < 400; ++j) {
+         CA ca(true, false);
+         for (int i = 0; i < RULELENGTH; ++i) {
+            //ca._rule[i] = (rand() % 3) + 2; // five state
+            ca._rule[i] = (rand() % 2) + 2; // four state
+            //out << (rand() % 2) + 1; // three state
+         }
+
+         real_2d_array training_data;
+         training_data.setlength(SEQUENCE_LENGTH * TEST_SETS, READOUT_LENGTH + 1);
+
+         ca.train_5_bit(training_data, true);
+         ca.set_5_bit_targets();
+         correct = ca.build_scikit_model(training_data);
+         if (correct == 0) {
+            #pragma omp critical
+            {
+               for (int k = 0; k < RULELENGTH; ++k) 
+                  out << ca._rule[k];
+               out << "   incorrect: " << correct << endl;  
+            }
+         }
+      }
+   }
+   out.close();
+}
+
+/***************************************************************************************/
 void save_RA_format(string rulefile) {
    CA ca(true, false);
    int row;
@@ -439,11 +489,48 @@ void save_RA_format(string rulefile) {
 
 /***************************************************************************************/
 
+void count_lambda() {
+   ifstream in;
+   string line;
+   string in_file = "lambda_3_state_rules.txt";
+   //string in_file = "lambda_rules.txt";
+   int i, count = 0;
+   float lambda[11] = {0}, l, total = 0;
+   size_t position, sz;
+
+   in.open(in_file.c_str(), ifstream::in);
+   for (i = 0; i < 73; ++i)
+      getline(in, line);
+
+   getline(in, line);
+   while (!in.eof()) {
+      if (line[0] != '<') {
+         position = line.find_last_of(" ");
+         l = stof(line.substr(position + 1), &sz);
+         //cout << l << "  ";
+         total += l;
+         ++count;
+         ++lambda[(int)(10*l)];
+      }
+      if (count > 100) 
+         break;
+      getline(in, line);
+   }
+   for (i = 1; i < 11; ++i)
+      cout << "lambda " << ((float)i)/10 << ":   " << lambda[i] << endl;
+   cout << "Total: " << count << endl;
+   cout << "Average: " << total/(float)count << endl;
+
+
+}
+
+/***************************************************************************************/
+
 void eoc() {
    //cout << "In EOC\n";
    ofstream out;
-   int num_tests = 100;
-   int success[10] = {0};
+   int num_tests = 1; //100;
+   int success[11] = {0};
 
    out.open("lambda_3_state_rules.txt", ofstream::out | ofstream::app);
 
@@ -479,7 +566,7 @@ void eoc() {
                   ++success[lamb];
                   for (int k = 0; k < RULELENGTH; ++k) 
                      out << ca._rule[k];
-                  out << "   correct: " << correct << "    lambda: " <<
+                  out << "   incorrect: " << correct << "    lambda: " <<
                               lambda << endl;  
                }
             }
