@@ -19,9 +19,6 @@ the 5-bit task.
 
 rule<#>.txt files contain the most successful elementary (2 state) CA rules.
 
-The repository includes a number of compiled .o files that are part of the
-AlgLib library.
-
 ## usage
 
 You can clone the project using
