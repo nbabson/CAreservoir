@@ -2,7 +2,7 @@
 // March 2019
 // Celluar Automaton Reservoir
 
-#include "stdafx.h"
+#include <libalglib/stdafx.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -10,7 +10,7 @@
 #include <time.h>
 #include <string>
 #include <iomanip>
-#include "dataanalysis.h"
+#include <libalglib/dataanalysis.h>
 #include "CAreservoir.h"
 #include <omp.h>
 #include <iostream>
